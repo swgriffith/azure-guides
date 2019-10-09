@@ -100,4 +100,4 @@ az aks upgrade -g EphClusterRoleTest -n testcluster --kubernetes-version 1.14.5
 # Both Should succeed
 ```
 
-Thats it. You now ha
+Thats it. You now have a role definition with the minimum roles required to Create, Scale and Upgrade a basic AKS cluster. In the next sections we'll get into custom Network, Storage and Log Analytics resources, as well as the Cluster Delete role.
