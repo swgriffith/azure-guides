@@ -54,7 +54,7 @@ Create a file called aks-compute-mgmnt-role.json with the following:
 }
 ```
 
-Setup:
+**Setup:**
 ```bash
 # Run the following, and use the json file name you used to save the above role
 az role definition create --role-definition @aks-compute-mgmnt-role.json
@@ -83,7 +83,7 @@ Create a file called aks-cluster-delete-role.json with the following:
   ]
 }
 ```
-Setup
+**Setup:**
 ```bash
 # Run the follwoing and use the json file name you used to save the role above
 az role definition create --role-definition @aks-cluster-delete-role.json
@@ -113,7 +113,7 @@ Create a file called aks-network-mgmnt-role.json with the following:
   ]
 }
 ```
-Setup:
+**Setup:**
 ```bash
 # Run the following, and use the json file name you used to save the above role
 az role definition create --role-definition @aks-network-mgmnt-role.json
@@ -163,7 +163,7 @@ Next create a second file called aks-loganalytics-join-role.json and paste the f
 }
 ```
 
-Now you can create both role definition and assign.
+**Setup:**  Now you can create both role definition and assign.
 ```bash
 az role definition create --role-definition @allow-resourcegroup-deployments.json
 az role definition create --role-definition @aks-loganalytics-join-role.json
@@ -474,7 +474,7 @@ az login --service-principal --username <AppID from cluster-owner-sp file> --pas
 az aks create -g EphClusterRoleTest -n testcluster --service-principal <AppID from cluster-internal-sp file> --client-secret <Password from cluster-internal-sp file> --node-vm-size Standard_D2s_v3 --enable-addons monitoring --workspace-resource-id '<Insert your workspace ID from above>'
 ```
 
-The above will initially fail with an error that you rights to perform 'Microsoft.OperationalInsights/workspaces/read' on the log analytics workspace. If you fix that, then you'll get an error that you need rights to 'Microsoft.Resources/deployments/write', but at a different scope (ex. /subscriptions/<SubID>/resourcegroups/EphClusterRoleTest-Logs/providers/Microsoft.Resources/deployments/aks-monitoring-1570729004343). After fixing that you'll get one more noting that you need 'Microsoft.ContainerService/managedClusters/write' at the log analytics scope. 
+The above will initially fail with an error that you rights to perform 'Microsoft.OperationalInsights/workspaces/read' on the log analytics workspace. If you fix that, then you'll get an error that you need rights to 'Microsoft.Resources/deployments/write', but at a different scope (ex. /subscriptions/\[SubID\]/resourcegroups/EphClusterRoleTest-Logs/providers/Microsoft.Resources/deployments/aks-monitoring-1570729004343). After fixing that you'll get one more noting that you need 'Microsoft.ContainerService/managedClusters/write' at the log analytics scope. 
 
 So, thats a bit messy. We will need to grant 'Microsoft.Resources/deployments/write' at the resource group level, but since we havent granted any other rights to that resource group, there really isnt anything you could deploy if you wanted. We also need two actions at the log analytics workspace level. So to keep this as secure as possible, we'll create two separate custom roles. One for log analytics deployments and then one for aks to join the workspace.
 
