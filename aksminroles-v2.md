@@ -12,6 +12,23 @@ AKS Cluster:
 ## Summary of Roles
 For those looking to skip the lengthy walk through below, here are the basic custom role definitions you need for Cluster management. Again, this does not include any changes you may choose to make to the Cluster Service Principal, which by default is granted Contributor rights on the MC_ Resource Group.
 
+### Retrieval of .kube/config credentials file via Azure CLI
+In order to use kubectl you will need to get your cluster credentials. Azure will provide these to you using the *az aks get-credentials* command. There are two roles available to control this, as follows:
+
+- Azure Kubernetes Service Cluster Admin Role
+- Azure Kubernetes Service Cluster User Role
+
+More info available via Azure Docs [here](https://docs.microsoft.com/bs-latn-ba/azure/aks/control-kubeconfig-access)
+
+Setup
+```bash
+# Grant rights to get the kubernetes cluster admin credential
+az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "Azure Kubernetes Service Cluster Admin Role"
+
+# Grant rights to get the kubernetes cluster user credentials
+az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "Azure Kubernetes Service Cluster User Role"
+```
+
 ### Cluster Compute Management
 This custom role provides the rights needed to create, upgrade and scale an AKS cluster for either Availability Sets (old way) or VM Scale Sets (new way).
 ```json
@@ -41,7 +58,7 @@ Setup:
 az role definition create --role-definition @aks-compute-mgmnt-role.json
 
 # Assign to a user at the Cluster Resource Group scope
-az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "AKS Compute Mgr"
+az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "AKS Compute Mgr"
 ```
 
 ### Cluster Network Join
@@ -69,7 +86,7 @@ Setup:
 az role definition create --role-definition @aks-network-mgmnt-role.json
 
 # Assign to a user at the subnet scope
-az role assignment create --assignee b2615cc0-664c-4c48-9fdf-81ceacb86518 --scope "<Insert your Subnet ID from above>" --role "AKS Network Join"
+az role assignment create --assignee <User> --scope "<Insert your Subnet ID from above>" --role "AKS Network Join"
 ```
 
 ## Basic Cluster Creation
@@ -247,7 +264,7 @@ az role assignment create --assignee b2615cc0-664c-4c48-9fdf-81ceacb86518 --scop
 Try to deploy the cluster again. This time it should deploy successfully.
 
 ```bash
-az aks create -g EphClusterRoleTest -n testcluster --service-principal 324cc3fe-3e28-472e-aa17-f6bf56e1f3cf --client-secret a6d25cc1-048e-4f17-a618-ecb4bce3509d --node-vm-size Standard_D2s_v3 --vnet-subnet-id '/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8/resourceGroups/EphClusterRoleTest/providers/Microsoft.Network/virtualNetworks/aks-test-vnet/subnets/aks-sub'
+az aks create -g EphClusterRoleTest -n testcluster --service-principal <AppID from cluster-internal-sp file> --client-secret <Password from cluster-internal-sp file> --node-vm-size Standard_D2s_v3 --vnet-subnet-id '<Insert Subnet ID from above>'
 ```
 
 Now try to run some scale and upgrade operations as well. Both should also work.
