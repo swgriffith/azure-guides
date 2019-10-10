@@ -7,10 +7,10 @@ AKS Cluster:
 - Upgrade
 - Deletion 
 
-**Note:** Within cluster management there are some permutations if you're attaching your cluster to a Virtual Network/Subnet that is in another Subscription or Resource Group. Likewise for connecting to Log Analytics or Storage in separate Subscriptions or Resource Groups.
+**Note:** Within cluster management there are some permutations if you're attaching your cluster to a Virtual Network/Subnet that is in another Subscription or Resource Group. Likewise for connecting to Log Analytics in separate Subscriptions or Resource Groups. The following breaks down all of those permutations.
 
 ## Summary of Roles
-For those looking to skip the lengthy walk through below, here are the basic custom role definitions you need for Cluster management. Again, this does not include any changes you may choose to make to the Cluster Service Principal, which by default is granted Contributor rights on the MC_ Resource Group.
+For those looking to skip the lengthy walk through below, here are the basic custom role definitions you need for Cluster management. Again, this does not include any changes you may choose to make to the Cluster Service Principal, which by default is granted Contributor rights on the MC_ Resource Group. Any of the following can be combined, however keep in mind the scope that you wish to apply. Keeping them separate gives your more granulaterity on the scope for each role.
 
 ### Retrieval of .kube/config credentials file via Azure CLI
 In order to use kubectl you will need to get your cluster credentials. Azure will provide these to you using the *az aks get-credentials* command. There are two roles available to control this, as follows:
@@ -30,7 +30,7 @@ az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetS
 ```
 
 ### Cluster Compute Management
-This custom role provides the rights needed to create, upgrade and scale an AKS cluster for either Availability Sets (old way) or VM Scale Sets (new way).
+This custom role provides the rights needed to create, upgrade and scale an AKS cluster for either Availability Sets (traditional model) or VM Scale Sets (new model).
 
 Create a file called aks-compute-mgmnt-role.json with the following:
 ```json
@@ -93,7 +93,7 @@ az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetS
 ```
 
 ### Cluster Network Join
-This custom role provides the rights needed to attach an AKS cluster to a subnet if the cluster creator does not yet have access.
+This custom role provides the rights needed to attach an AKS cluster to a subnet if the cluster creator does not yet have access to that subnet.
 
 Create a file called aks-network-mgmnt-role.json with the following:
 ```json
@@ -123,7 +123,7 @@ az role assignment create --assignee <User> --scope "<Insert your Subnet ID from
 ```
 
 ### Cluster Join to Log Analytics
-This one is a bit more complex as it requires two roles. One scoped to the resource group where log analytics resides, and a second scoped to the log analytics workspace itself. The second is required because a deployment is executed on your behalf when you try to attach to a log analytics workspace and since it's ID is dynamic you'll need to grant access at a higher level. Fortunately we've allowed such a small subset of tasks, having deployment access wont really allow anything beyond joining the workspace.
+This one is a bit more complex as it requires two roles. One scoped to the resource group where log analytics resides, and a second scoped to the log analytics workspace itself. The first is required because a deployment is executed on your behalf when you try to attach to a log analytics workspace and since it's ID is dynamic you'll need to grant access at a higher level. Fortunately we've allowed such a small subset of tasks, having deployment access wont really allow anything beyond joining the workspace.
 
 First, create a file called allow-resourcegroup-deployments.json and paste in the following:
 
@@ -139,7 +139,7 @@ First, create a file called allow-resourcegroup-deployments.json and paste in th
 
   ],
   "AssignableScopes": [
-    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+    "/subscriptions/<Insert Your Subscription ID>"
   ]
 }
 ```
@@ -158,7 +158,7 @@ Next create a second file called aks-loganalytics-join-role.json and paste the f
 
   ],
   "AssignableScopes": [
-    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+    "/subscriptions/<Insert Your Subscription ID>"
   ]
 }
 ```
@@ -174,16 +174,19 @@ az role assignment create --assignee <AppID from cluster-owner-sp file> --scope 
 # This is scoped to the log analytics workspace resource ID
 az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "<Insert your Log Analytics worksapce ID from above>" --role "AKS Log Analytics Join"
 ```
+<br>
 
-### Cluster Delete
-TBD
+**That's it! Those roles should give you want you need to create and manage your clusters**
+<br>
+<br>
 
+---
+---
 
-That's it. Those roles should give you want you need to create and manage your clusters
 
 # Testing and proof
 ## Basic Cluster Creation
-The First walk through will be the creation of a basic cluster where we're not attaching to any Network, Storage or Log Analytics instances outside of the MC_ resource group. This is the most straight forward as far as required roles and assigned scopes.
+The First walk through will be the creation of a basic cluster where we're not attaching to any Network or Log Analytics instances outside of the MC_ resource group. This is the most straight forward as far as required roles and assigned scopes.
 
 Create Service Principals for Cluster Admin user and Cluster internal user
 ```bash
