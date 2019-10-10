@@ -181,7 +181,6 @@ az role assignment create --assignee <AppID from cluster-owner-sp file> --scope 
 <br>
 
 ---
----
 
 
 # Testing and proof
