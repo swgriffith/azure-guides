@@ -31,6 +31,8 @@ az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetS
 
 ### Cluster Compute Management
 This custom role provides the rights needed to create, upgrade and scale an AKS cluster for either Availability Sets (old way) or VM Scale Sets (new way).
+
+Create a file called aks-compute-mgmnt-role.json with the following:
 ```json
 {
 "Name": "AKS Compute Mgr",
@@ -63,6 +65,8 @@ az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetS
 
 ### Cluster Network Join
 This custom role provides the rights needed to attach an AKS cluster to a subnet if the cluster creator does not yet have access.
+
+Create a file called aks-network-mgmnt-role.json with the following:
 ```json
 {
   "Name": "AKS Network Join",
@@ -89,6 +93,66 @@ az role definition create --role-definition @aks-network-mgmnt-role.json
 az role assignment create --assignee <User> --scope "<Insert your Subnet ID from above>" --role "AKS Network Join"
 ```
 
+### Cluster Join to Log Analytics
+This one is a bit more complex as it requires two roles. One scoped to the resource group where log analytics resides, and a second scoped to the log analytics workspace itself. The second is required because a deployment is executed on your behalf when you try to attach to a log analytics workspace and since it's ID is dynamic you'll need to grant access at a higher level. Fortunately we've allowed such a small subset of tasks, having deployment access wont really allow anything beyond joining the workspace.
+
+First, create a file called allow-resourcegroup-deployments.json and paste in the following:
+
+```json
+{
+  "Name": "Resource Group Deployment Write",
+  "IsCustom": true,
+  "Description": "Can join an AKS cluster to a log analytics workspace",
+  "Actions": [
+    "Microsoft.Resources/deployments/write"
+  ],
+  "NotActions": [
+
+  ],
+  "AssignableScopes": [
+    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+  ]
+}
+```
+
+Next create a second file called aks-loganalytics-join-role.json and paste the following:
+```json
+{
+  "Name": "AKS Log Analytics Join",
+  "IsCustom": true,
+  "Description": "Can join an AKS cluster to a log analytics workspace",
+  "Actions": [
+    "Microsoft.OperationalInsights/workspaces/sharedkeys/read",
+    "Microsoft.OperationsManagement/solutions/write"
+  ],
+  "NotActions": [
+
+  ],
+  "AssignableScopes": [
+    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+  ]
+}
+```
+
+Now you can create both role definition and assign.
+```bash
+az role definition create --role-definition @allow-resourcegroup-deployments.json
+az role definition create --role-definition @aks-loganalytics-join-role.json
+
+# This is scoped to the resource group containring the log analytics workspace
+az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "/subscriptions/<SubscriptionID>/resourcegroups/EphClusterRoleTest-Logs" --role "Resource Group Deployment Write"
+
+# This is scoped to the log analytics workspace resource ID
+az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "<Insert your Log Analytics worksapce ID from above>" --role "AKS Log Analytics Join"
+```
+
+### Cluster Delete
+TBD
+
+
+That's it. Those roles should give you want you need to create and manage your clusters
+
+# Testing and proof
 ## Basic Cluster Creation
 The First walk through will be the creation of a basic cluster where we're not attaching to any Network, Storage or Log Analytics instances outside of the MC_ resource group. This is the most straight forward as far as required roles and assigned scopes.
 
@@ -258,7 +322,7 @@ As we did previously, from the Azure CLI run the following to create the role, a
 ```bash
 az role definition create --role-definition @aks-network-mgmnt-role.json
 
-az role assignment create --assignee b2615cc0-664c-4c48-9fdf-81ceacb86518 --scope "<Insert your Subnet ID from above>" --role "AKS Network Join"
+az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "<Insert your Subnet ID from above>" --role "AKS Network Join"
 ```
 
 Try to deploy the cluster again. This time it should deploy successfully.
@@ -298,4 +362,141 @@ We will again apply the Compute Manager and Cluster Admin roles we've applied be
 ```bash
 az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "AKS Compute Mgr"
 az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "Azure Kubernetes Service Cluster Admin Role"
+```
+
+Now lets create a Log Analytics Workspace in another Resource Group to which the above user isn't authorized. Since Log Analytics doesnt have it's own CLI command to deploy, we'll use an Azure Resoure Manager Template. Create a new file called logAnalyticsARM.json and paste the following:
+
+```json
+{
+"$schema": "https://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+"contentVersion": "1.0.0.0",
+"parameters": {
+    "workspaceName": {
+        "type": "String",
+ 		"metadata": {
+          "description": "Specifies the name of the workspace."
+        }
+    },
+    "location": {
+        "type": "String",
+ 		"defaultValue": "[resourceGroup().location]",
+ 		"metadata": {
+ 		  "description": "Specifies the location in which to create the workspace."
+ 		}
+    },
+    "sku": {
+        "type": "String",
+ 		"allowedValues": [
+          "Standalone",
+          "PerNode",
+ 	      "PerGB2018"
+        ],
+ 		"defaultValue": "PerGB2018",
+         "metadata": {
+        "description": "Specifies the service tier of the workspace: Standalone, PerNode, Per-GB"
+ 	}
+      }
+},
+"resources": [
+    {
+        "type": "Microsoft.OperationalInsights/workspaces",
+        "name": "[parameters('workspaceName')]",
+        "apiVersion": "2015-11-01-preview",
+        "location": "[parameters('location')]",
+        "properties": {
+            "sku": {
+                "Name": "[parameters('sku')]"
+            },
+            "features": {
+                "searchVersion": 1
+            }
+        }
+      }
+   ]
+}
+```
+Run the following commands to create the workspace.
+```bash
+# Create a resource group to contain the workspace
+az group create -n EphClusterRoleTest-Logs -l eastus
+
+# Create the workspace
+az group deployment create -g EphClusterRoleTest-Logs --name deploy1 --template-file logAnalyticsARM.json -o json
+
+# When prompted provide a unique workspace name
+# Also note down the resource ID from 'OutputResources.ID' for later use
+# ex. /subscriptions/<SubscriptionID>/resourceGroups/EphClusterRoleTest-Logs/providers/Microsoft.OperationalInsights/workspaces/akslogs2
+```
+
+Now lets attempt to create a cluster using this new workspace
+
+```bash
+##########################################
+### Switch out of the cloud shell here ###
+##########################################
+
+# Login
+az login --service-principal --username <AppID from cluster-owner-sp file> --password <Password from cluster-owner-sp file> --tenant <Insert your AAD Tenant ID>
+
+# Create the cluster
+az aks create -g EphClusterRoleTest -n testcluster --service-principal <AppID from cluster-internal-sp file> --client-secret <Password from cluster-internal-sp file> --node-vm-size Standard_D2s_v3 --enable-addons monitoring --workspace-resource-id '<Insert your workspace ID from above>'
+```
+
+The above will initially fail with an error that you rights to perform 'Microsoft.OperationalInsights/workspaces/read' on the log analytics workspace. If you fix that, then you'll get an error that you need rights to 'Microsoft.Resources/deployments/write', but at a different scope (ex. /subscriptions/<SubID>/resourcegroups/EphClusterRoleTest-Logs/providers/Microsoft.Resources/deployments/aks-monitoring-1570729004343). After fixing that you'll get one more noting that you need 'Microsoft.ContainerService/managedClusters/write' at the log analytics scope. 
+
+So, thats a bit messy. We will need to grant 'Microsoft.Resources/deployments/write' at the resource group level, but since we havent granted any other rights to that resource group, there really isnt anything you could deploy if you wanted. We also need two actions at the log analytics workspace level. So to keep this as secure as possible, we'll create two separate custom roles. One for log analytics deployments and then one for aks to join the workspace.
+
+First, create a file called allow-resourcegroup-deployments.json and paste in the following:
+
+```json
+{
+  "Name": "AKS Log Analytics Deployment Write",
+  "IsCustom": true,
+  "Description": "Can join an AKS cluster to a log analytics workspace",
+  "Actions": [
+    "Microsoft.Resources/deployments/write"
+  ],
+  "NotActions": [
+
+  ],
+  "AssignableScopes": [
+    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+  ]
+}
+```
+
+Next create a second file called aks-loganalytics-join-role.json and paste the following:
+```json
+{
+  "Name": "Resource Group Deployment Write",
+  "IsCustom": true,
+  "Description": "Can join an AKS cluster to a log analytics workspace",
+  "Actions": [
+    "Microsoft.Resources/deployments/write"
+  ],
+  "NotActions": [
+
+  ],
+  "AssignableScopes": [
+    "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8"
+  ]
+}
+```
+
+Now you can create both role definition and assign.
+```bash
+az role definition create --role-definition @allow-resourcegroup-deployments.json
+az role definition create --role-definition @aks-loganalytics-join-role.json
+
+# This is scoped to the log analytics workspace resource ID
+az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "<Insert your Log Analytics worksapce ID from above>" --role "AKS Log Analytics Join"
+
+# This is scoped to the resource group containring the log analytics workspace
+az role assignment create --assignee <AppID from cluster-owner-sp file> --scope "/subscriptions/<SubscriptionID>/resourcegroups/EphClusterRoleTest-Logs" --role "Resource Group Deployment Write"
+```
+
+Try to create the cluster again. This time it should succeed and within a few mintues you should see metrics flowing into log analytics.
+```bash
+# Create the cluster
+az aks create -g EphClusterRoleTest -n testcluster --service-principal <AppID from cluster-internal-sp file> --client-secret <Password from cluster-internal-sp file> --node-vm-size Standard_D2s_v3 --enable-addons monitoring --workspace-resource-id '<Insert your workspace ID from above>'
 ```
