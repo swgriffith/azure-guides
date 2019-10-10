@@ -63,6 +63,35 @@ az role definition create --role-definition @aks-compute-mgmnt-role.json
 az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "AKS Compute Mgr"
 ```
 
+### Cluster Delete
+This custom role grants permissions needed to delete a cluster. 
+
+Create a file called aks-cluster-delete-role.json with the following:
+```json
+{
+  "Name": "AKS Cluster Delete",
+  "IsCustom": true,
+  "Description": "Grants actions required to delete an aks cluster",
+  "Actions": [
+    "Microsoft.ContainerService/managedClusters/delete"
+  ],
+  "NotActions": [
+
+  ],
+  "AssignableScopes": [
+    "/subscriptions/<SubscriptionID>"
+  ]
+}
+```
+Setup
+```bash
+# Run the follwoing and use the json file name you used to save the role above
+az role definition create --role-definition @aks-cluster-delete-role.json
+
+# Assign to a user at the Cluster level or above (i.e. Cluster, Resource Group or Subscription)
+az role assignment create --assignee <User> --scope "/subscriptions/<YourTargetSubscriptionID>/resourceGroups/<YourTargetAKSClusterResourceGroup>" --role "AKS Cluster Delete"
+```
+
 ### Cluster Network Join
 This custom role provides the rights needed to attach an AKS cluster to a subnet if the cluster creator does not yet have access.
 
