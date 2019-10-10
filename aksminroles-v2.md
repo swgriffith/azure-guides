@@ -281,7 +281,7 @@ az ad sp delete --id <AppID from cluster-owner-sp file>
 az ad sp delete --id <AppID from cluster-internal-sp file>
 ```
 
-## ## Cluster Creation with the Log Analytics Workspace in a Separate Sub or Resource Group
+## Cluster Creation with the Log Analytics Workspace in a Separate Sub or Resource Group
 Similar to the issue we addressed above for a VNet in a separate resource group or subscription, it's possible that you may enable monitoring and logging to an Azure Log Analytics workspace that could possibly be in a separate Resource Group or Subscription.
 
 Lets again start by creating fresh service principals so we know there arent any roles bound yet.
