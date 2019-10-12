@@ -1,5 +1,5 @@
 # Cluster Management Roles
-When working with Azure Kubernetes Service there can be a lot of confusion about the access needed by the individuals managing the cluster as well as the roles required by the Service Principal used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). The following tries to break it down and demonstrate the minimal roles required for Cluster Administration. When I say Cluster Administration I'm referring to the following:
+When working with Azure Kubernetes Service (AKS) there can be a lot of confusion about the access needed by the individuals managing the cluster as well as the roles required by the Service Principal used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). The following tries to break it down and demonstrate the minimal roles required for Cluster Administration. When I say Cluster Administration I'm referring to the following:
 
 AKS Cluster:
 - Creation
