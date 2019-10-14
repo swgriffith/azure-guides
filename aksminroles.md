@@ -1,5 +1,5 @@
 # Cluster Management Roles
-Azure Kubernetes Service (AKS) requires two identities, Azure user and a Service Principal, to operate. The 'az aks' commands are executed under the context of this user. The Service Principal is used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). More on Service Principal [here]https://docs.microsoft.com/en-us/azure/aks/kubernetes-service-principal
+Azure Kubernetes Service (AKS) requires two identities, Azure user and a Service Principal, to operate. The 'az aks' commands are executed under the context of this user. The Service Principal is used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). More on Service Principal [here](https://docs.microsoft.com/en-us/azure/aks/kubernetes-service-principal).
 
 Understanding the Azure RBAC roles needed by the user as well as the ones required by the Service Principal enables secure operation and resource delegation within an enterprise.  
 
@@ -187,6 +187,11 @@ az role assignment create --assignee <AppID from cluster-owner-sp file> --scope 
 
 
 # Testing and proof
+
+```
+Note: In the following sections I'll be using a service principal as the cluster creator/operator. This was only done to simplify my testing. In a real world scenario you would use an Azure Azure AD user.
+```
+
 ## Basic Cluster Creation
 The First walk through will be the creation of a basic cluster where we're not attaching to any Network or Log Analytics instances outside of the MC_ resource group. This is the most straight forward as far as required roles and assigned scopes.
 
