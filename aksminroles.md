@@ -1,13 +1,16 @@
 # Cluster Management Roles
-When working with Azure Kubernetes Service there can be a lot of confusion about the access needed by the individuals managing the cluster as well as the roles required by the Service Principal used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). The following tries to break it down and demonstrate the minimal roles required for Cluster Administration. When I say Cluster Administration I'm referring to the following:
+Azure Kubernetes Service (AKS) requires two identities, Azure user and a Service Principal, to operate. The 'az aks' commands are executed under the context of this user. The Service Principal is used by the cluster itself to execute Azure operations (ex. Creating an Azure Public IP on a Service type=LoadBalancer). More on Service Principal [here]https://docs.microsoft.com/en-us/azure/aks/kubernetes-service-principal
 
-AKS Cluster:
+Understanding the Azure RBAC roles needed by the user as well as the ones required by the Service Principal enables secure operation and resource delegation within an enterprise.  
+
+This post will examine AKS RBAC requirements and demonstrate the minimal roles required for cluster administration operations as follows:
+
 - Creation
 - Scale
 - Upgrade
 - Deletion 
 
-**Note:** Within cluster management there are some permutations if you're attaching your cluster to a Virtual Network/Subnet that is in another Subscription or Resource Group. Likewise for connecting to Log Analytics in separate Subscriptions or Resource Groups. The following breaks down all of those permutations.
+**Note:** Within cluster management, there are some permutations if you're attaching your cluster to a Virtual Network/Subnet that is in another Subscription or Resource Group. Likewise for connecting to Log Analytics in separate Subscriptions or Resource Groups. The following breaks down all of those permutations.
 
 ## Summary of Roles
 For those looking to skip the lengthy walk through below, here are the basic custom role definitions you need for Cluster management. Again, this does not include any changes you may choose to make to the Cluster Service Principal, which by default is granted Contributor rights on the MC_ Resource Group. Any of the following can be combined, however keep in mind the scope that you wish to apply. Keeping them separate gives your more granulaterity on the scope for each role.
