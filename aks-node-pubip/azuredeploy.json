@@ -128,11 +128,11 @@
             ],
             "properties": {
                 "count": 3,
-                "vmSize": "Standard_DS2_v2",
+                "vmSize": "[parameters('agentVMSize')]",
                 "osDiskSizeGB": 100,
                 "maxPods": 110,
                 "type": "VirtualMachineScaleSets",
-                "orchestratorVersion": "1.15.10",
+                "orchestratorVersion": "[parameters('k8sversion')]",
                 "osType": "Linux",
                 "enableNodePublicIP": true
             }
