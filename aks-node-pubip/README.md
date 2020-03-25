@@ -20,6 +20,9 @@ az feature register --name NodePublicIPPreview --namespace Microsoft.ContainerSe
 
 # Check registration status (may take up to 30min to register)
 az feature show --namespace Microsoft.ContainerService --name NodePublicIPPreview
+
+# Once registered you need to refresh the provider
+az provider register --namespace Microsoft.ContainerService
 ```
 
 1. Generate ssh key
@@ -34,6 +37,7 @@ az feature show --namespace Microsoft.ContainerService --name NodePublicIPPrevie
     ```bash
     az ad sp create-for-rbac --skip-assignment -o json
 
+    # Example output
     {
     "appId": "sdfsdsd-ac68-4a3b-a936-sdfsdfsdfds",
     "displayName": "azure-cli-2020-03-25-02-54-39",
@@ -50,4 +54,16 @@ az feature show --namespace Microsoft.ContainerService --name NodePublicIPPrevie
     chmod +x clustercreate.sh
     ./clustercreate.sh
     ```
+1. After creation completes, check the nodes have external ips
+```bash
+# Get your AKS cluster credentials
+az aks get-credentials -g <Resrouce Group Name> -n <Cluster Name>
+
+# Check the nodes have 'External IPs' assigned
+kubectl get nodes -o wide
+NAME                                STATUS   ROLES   AGE     VERSION    INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+aks-nodepool1-37394874-vmss000000   Ready    agent   3m3s    v1.15.10   10.240.0.4    40.121.148.106   Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+aks-nodepool1-37394874-vmss000001   Ready    agent   3m7s    v1.15.10   10.240.0.5    40.121.149.70    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+aks-nodepool1-37394874-vmss000002   Ready    agent   3m28s   v1.15.10   10.240.0.6    40.121.144.56    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+```
 

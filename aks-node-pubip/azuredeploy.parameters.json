@@ -3,13 +3,16 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "clusterName": {
-            "value": "griffithpubip"
+            "value": "<Insert Cluster Name>"
         },
         "dnsPrefix": {
-            "value": "griffithpubip"
+            "value": "<Insert DNS Name>"
         },
         "agentCount": {
             "value": 3
+        },
+        "k8sversion": {
+            "value": "1.15.10"
         },
         "agentVMSize":{
             "value": "Standard_DS2_v2"
@@ -18,13 +21,13 @@
             "value": "aksadmin"
         },
         "sshRSAPublicKey": {
-            "value": "<INSERT SSH KEY>"
+            "value": "<Insert SSH Public Key>"
         },
         "servicePrincipalClientId": {
-            "value": "<INSERT SERVICE PRINCIPAL APP ID>"
+            "value": "<Insert Service Principal App ID>"
         },
         "servicePrincipalClientSecret": {
-            "value": "<INSERT SERVICE PRINCIPAL SECRET>"
+            "value": "<Insert Service Principal Password>"
         }
     }
 }
