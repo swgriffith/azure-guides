@@ -14,6 +14,14 @@ Cluster creation requires a few values be created and set in the azuredeploy.par
 - *servicePrincipalClientId:* App ID for the cluster service principal. Generated via steps below.
 - *servicePrincipalClientSecret:* Password for the service principal. See steps below
 
+1. Register for the preview feature
+```bash
+az feature register --name NodePublicIPPreview --namespace Microsoft.ContainerService
+
+# Check registration status (may take up to 30min to register)
+az feature show --namespace Microsoft.ContainerService --name NodePublicIPPreview
+```
+
 1. Generate ssh key
     ```bash
     # Run ssh-keygen to generate an ssh key for the cluster
