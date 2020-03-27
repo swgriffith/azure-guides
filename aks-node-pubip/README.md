@@ -67,3 +67,15 @@ aks-nodepool1-37394874-vmss000001   Ready    agent   3m7s    v1.15.10   10.240.0
 aks-nodepool1-37394874-vmss000002   Ready    agent   3m28s   v1.15.10   10.240.0.6    40.121.144.56    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
 ```
 
+1. To deploy a pod that leverages the public IP you'll need to take advantage of the hostNetwork of the pod specification. 
+
+```bash
+# Deploy the pod
+kubectl apply -f nginx-node-pubip.yaml
+
+# Get the pod public IP
+kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}'
+
+# For this demo you can use the following to get the URL to the pod
+echo http://$(kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')
+```
