@@ -6,7 +6,7 @@ metadata:
     run: nginx
   name: nginx
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       run: nginx
@@ -17,6 +17,16 @@ spec:
       labels:
         run: nginx
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: run
+                operator: In
+                values:
+                - nginx
+            topologyKey: "kubernetes.io/hostname"
       hostNetwork: true
       containers:
       - image: nginx
