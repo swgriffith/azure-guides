@@ -55,47 +55,47 @@ az provider register --namespace Microsoft.ContainerService
     ./clustercreate.sh
     ```
 1. After creation completes, check the nodes have external ips
-```bash
-# Get your AKS cluster credentials
-az aks get-credentials -g <Resrouce Group Name> -n <Cluster Name>
+    ```bash
+    # Get your AKS cluster credentials
+    az aks get-credentials -g <Resrouce Group Name> -n <Cluster Name>
 
-# Check the nodes have 'External IPs' assigned
-kubectl get nodes -o wide
-NAME                                STATUS   ROLES   AGE     VERSION    INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-aks-nodepool1-37394874-vmss000000   Ready    agent   3m3s    v1.15.10   10.240.0.4    40.121.148.106   Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
-aks-nodepool1-37394874-vmss000001   Ready    agent   3m7s    v1.15.10   10.240.0.5    40.121.149.70    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
-aks-nodepool1-37394874-vmss000002   Ready    agent   3m28s   v1.15.10   10.240.0.6    40.121.144.56    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
-```
+    # Check the nodes have 'External IPs' assigned
+    kubectl get nodes -o wide
+    NAME                                STATUS   ROLES   AGE     VERSION    INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+    aks-nodepool1-37394874-vmss000000   Ready    agent   3m3s    v1.15.10   10.240.0.4    40.121.148.106   Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+    aks-nodepool1-37394874-vmss000001   Ready    agent   3m7s    v1.15.10   10.240.0.5    40.121.149.70    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+    aks-nodepool1-37394874-vmss000002   Ready    agent   3m28s   v1.15.10   10.240.0.6    40.121.144.56    Ubuntu 16.04.6 LTS   4.15.0-1071-azure   docker://3.0.10+azure
+    ```
 
 1. To deploy a pod that leverages the public IP you'll need to take advantage of the hostNetwork of the pod specification. 
 
-```bash
-# Deploy the pod
-kubectl apply -f nginx-node-pubip.yaml
+    ```bash
+    # Deploy the pod
+    kubectl apply -f nginx-node-pubip.yaml
 
-# Get the pod public IP
-kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}'
+    # Get the pod public IP
+    kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}'
 
-# For this demo you can use the following to get the URL to the pod
-echo http://$(kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')
-```
+    # For this demo you can use the following to get the URL to the pod
+    echo http://$(kubectl get node $(kubectl get pods -l run=nginx -o jsonpath='{.items[0].spec.nodeName}') -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}')
+    ```
 
 1. Finally, you will need to open up the Azure Network Security group that is created for the cluster to allow traffic to the nodes on port 80 where Nginx is hosted.
 
-```bash
-RG=<Insert the Resource Group Name for your Cluster>
-CLUSTERNAME=<Insert your cluster name>
+    ```bash
+    RG=<Insert the Resource Group Name for your Cluster>
+    CLUSTERNAME=<Insert your cluster name>
 
-# Get the 'Managed Cluster' (MC) resource group for your cluster
-MCRG=$(az aks show -g $RG -n $CLUSTERNAME -o tsv --query 'nodeResourceGroup')
+    # Get the 'Managed Cluster' (MC) resource group for your cluster
+    MCRG=$(az aks show -g $RG -n $CLUSTERNAME -o tsv --query 'nodeResourceGroup')
 
-# Get the Network Security Group Name for your cluster
-NSG=$(az network nsg list -g $MCRG -o tsv --query '[0].name')
+    # Get the Network Security Group Name for your cluster
+    NSG=$(az network nsg list -g $MCRG -o tsv --query '[0].name')
 
-# Create the rule to allow traffic to port 80 for the subnet
-az network nsg rule create -g $MCRG --nsg-name $NSG -n Allow80 --priority 100 \
-    --destination-address-prefixes '*' --destination-port-ranges 80 --access Allow \
-    --protocol Tcp --description "Allow inbound traffic to port 80 on all nodes."
-```
+    # Create the rule to allow traffic to port 80 for the subnet
+    az network nsg rule create -g $MCRG --nsg-name $NSG -n Allow80 --priority 100 \
+        --destination-address-prefixes '*' --destination-port-ranges 80 --access Allow \
+        --protocol Tcp --description "Allow inbound traffic to port 80 on all nodes."
+    ```
 
 1. You should now be able to access the Nginx URL you retrieved above.
