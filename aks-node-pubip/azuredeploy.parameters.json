@@ -3,10 +3,10 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "clusterName": {
-            "value": "<Insert Cluster Name>"
+            "value": "griff-pubip"
         },
         "dnsPrefix": {
-            "value": "<Insert DNS Name>"
+            "value": "griff-pubip3"
         },
         "agentCount": {
             "value": 3
@@ -21,13 +21,13 @@
             "value": "aksadmin"
         },
         "sshRSAPublicKey": {
-            "value": "<Insert SSH Public Key>"
+            "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCspOsurLeHOkOURdzyS85lqjmropd/AJMXzy0VNY1VowiHDjh15VQli3aYOrBIjQAQWVEQDTGF3dnBE2EcZeNfVKh0Hr4JYLhdQSh6QKs4OxGix0Ri7iVGFuFSBqjnenyGlc6K/6JJiVAzKEXfo8m/t0Kt5gr3mjpONTlcxrE7U7n0PvZ8iP5/ORasU7R3zkh3YkWf68Clo3nqODNKWp5u69ASekbh7ugJETcSDVLLTT3roQJQqjub/u41Hofm37AWjWjWNMinD7QYdZbj4wEqEWLBjsR8AWakhZVLhNxIjJw5IQBJezbp14VqPzPjCE/ccOC6Pxv8Lm0Xeih+pQKJ griffith@snowcrash"
         },
         "servicePrincipalClientId": {
-            "value": "<Insert Service Principal App ID>"
+            "value": "02220a44-f0ae-4e40-8f99-fb87643710ff"
         },
         "servicePrincipalClientSecret": {
-            "value": "<Insert Service Principal Password>"
+            "value": "3c6a1b5f-9127-46c1-8cac-003ee9f313b3"
         }
     }
 }

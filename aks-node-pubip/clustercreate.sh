@@ -10,9 +10,9 @@
 
 
 # Set environment variables
-RG=<Insert Resource Group>
-LOC=<Insert Azure Region>
+RG=TrashManagedIdent
+LOC=eastus
 
 az group create -g $RG -l $LOC
 
-az group deployment create -g $RG --template-file azuredeploy.json --parameters @azuredeploy.parameters.json
+az group deployment create -g $RG --template-file azuredeploy.json --parameters @azuredeploy.parameters.json --verbose

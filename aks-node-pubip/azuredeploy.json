@@ -1,6 +1,6 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.1",
     "parameters": {
         "clusterName": {
             "type": "string",
@@ -73,7 +73,7 @@
     "resources": [
         {
             "type": "Microsoft.ContainerService/managedClusters",
-            "apiVersion": "2020-02-01",
+            "apiVersion": "2020-03-01",
             "name": "[parameters('clusterName')]",
             "location": "[parameters('location')]",
             "properties": {
@@ -82,6 +82,7 @@
                 "agentPoolProfiles": [
                     {
                         "name": "nodepool1",
+                        "mode": "System",
                         "count": "[parameters('agentCount')]",
                         "vmSize": "[parameters('agentVMSize')]",
                         "osDiskSizeGB": 100,
@@ -102,10 +103,6 @@
                         ]
                     }
                 },
-                "servicePrincipalProfile": {
-                    "clientId": "[parameters('servicePrincipalClientId')]",
-                    "Secret": "[parameters('servicePrincipalClientSecret')]"
-                },
                 "enableRBAC": true,
                 "enablePodSecurityPolicy": false,
                 "networkProfile": {
@@ -116,18 +113,29 @@
                     "dnsServiceIP": "10.0.0.10",
                     "dockerBridgeCidr": "172.17.0.1/16",
                     "outboundType": "loadBalancer"
+                },
+                "identityProfile": {
+                    "kubeletidentity": {
+                    "clientId": "16314655-fc5c-490a-a84c-7727aa014f43",
+                    "objectId": "44fadae2-35b3-4de1-a07a-0cceb3ce4dcf",
+                    "resourceId": "/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8/resourcegroups/TrashManagedIdent/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aksuserassigned"
+                    }
                 }
-            }
+            },
+        "identity": {
+            "type": "SystemAssigned"
+        }
         },
         {
             "type": "Microsoft.ContainerService/managedClusters/agentPools",
-            "apiVersion": "2020-02-01",
+            "apiVersion": "2020-03-01",
             "name": "[concat(parameters('clusterName'), '/nodepool1')]",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]"
             ],
             "properties": {
                 "count": 3,
+                "mode": "System",
                 "vmSize": "[parameters('agentVMSize')]",
                 "osDiskSizeGB": 100,
                 "maxPods": 110,
