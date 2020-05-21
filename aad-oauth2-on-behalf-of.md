@@ -341,3 +341,7 @@ You should see the the 'Authorization' header passed to the backend is the on-be
 
 ![API Management Test Top](./images/apim-test-top.png)
 ![API Management Test Top](./images/apim-test-bottom.png)
+
+## Closing Notes
+
+Hopefully this helps you set up your own on-behalf-of flows withing Azure API Mangaement with Azure AD. There are some additions that could be made here to improve the above. Most noteably would be caching of the token and a token refresh flow to minimize the calls to Azure AD and to improve performance. I'll add those at a later time. Feel free to hit me up with questions.
