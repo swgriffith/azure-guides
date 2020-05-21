@@ -289,6 +289,50 @@ Finally, we just need to take the new on-behalf-of token and use that to replace
 </set-header>
 ```
 
+Here's what the full policy looks like:
+
+```xml
+<policies>
+    <inbound>
+        <base />
+        <!--Validate User Token - Checking for Gateway App ID in the aud claim-->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
+            <openid-config url="https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration" />
+            <required-claims>
+                <claim name="aud">
+                    <value>{{clientId}}</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+        <!--Grab the bearer token value and store in a variable for later use-->
+        <set-variable name="UserToken" value="@(((String)context.Request.Headers["Authorization"][0]).Substring(7))" />
+        <!--Call AAD to get the on-behalf-of token using the user token from above as the assertion -->
+        <send-request ignore-error="true" timeout="20" response-variable-name="onBehalfOfToken" mode="new">
+            <set-url>{{authorizationServer}}</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/x-www-form-urlencoded</value>
+            </set-header>
+            <set-body>@{
+              return "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_id={{clientId}}&client_secret={{clientSecret}}&assertion=" + (string)context.Variables["UserToken"] + "&scope={{scope}}&requested_token_use=on_behalf_of";
+          }</set-body>
+        </send-request>
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (String)((IResponse)context.Variables["onBehalfOfToken"]).Body.As<JObject>()["access_token"])</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+```
+
 Now you're ready to test. For my testing I used the legacy API Management developer portal (personal preference), but you can use any tool you prefer (i.e. Postman, curl, etc). The key is that you first need to get a valid User Access Token, like we did above using Postman, and pass that in as the 'Authorization' header (i.e. Bearer [token]). Also, dont forget to set your subscription key for API Management in the Ocp-Apim-Subscription-Key header.
 
 You should see the the 'Authorization' header passed to the backend is the on-behalf-of backend token, again you can validate by pasting the token into the JWT decoder at [jwt.io](jwt.io)
