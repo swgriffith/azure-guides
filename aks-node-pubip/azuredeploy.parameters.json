@@ -1,0 +1,33 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "value": "griff-pubip"
+        },
+        "dnsPrefix": {
+            "value": "griff-pubip3"
+        },
+        "agentCount": {
+            "value": 3
+        },
+        "k8sversion": {
+            "value": "1.15.10"
+        },
+        "agentVMSize":{
+            "value": "Standard_DS2_v2"
+        },
+        "linuxAdminUsername": {
+            "value": "aksadmin"
+        },
+        "sshRSAPublicKey": {
+            "value": ""
+        },
+        "servicePrincipalClientId": {
+            "value": ""
+        },
+        "servicePrincipalClientSecret": {
+            "value": ""
+        }
+    }
+}
