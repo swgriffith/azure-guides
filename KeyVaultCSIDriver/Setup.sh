@@ -37,7 +37,6 @@ az keyvault secret set --vault-name $KV_NAME --name "ExamplePassword" --value "F
 az keyvault secret show --name "ExamplePassword" --vault-name $KV_NAME
 
 # Grant rights to the cluster Identity for Pod Identity
-#az role assignment create --role "Managed Identity Contributor" --assignee $CLUSTER_IDENTITY --scope /subscriptions/$SUBID/resourcegroups/$NODE_RESOURCE_GROUP
 az role assignment create --role "Managed Identity Operator" --assignee $CLUSTER_IDENTITY --scope /subscriptions/$SUBID/resourcegroups/$NODE_RESOURCE_GROUP
 az role assignment create --role "Virtual Machine Contributor" --assignee $CLUSTER_IDENTITY --scope /subscriptions/$SUBID/resourcegroups/$NODE_RESOURCE_GROUP
 
