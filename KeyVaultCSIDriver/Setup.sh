@@ -144,3 +144,6 @@ EOF
 
 # Start the test pod
 kubectl apply -f TestPod.yaml
+
+# Test that that secret was mounted properly
+kubectl exec -it nginx-secrets-store-inline -- cat /mnt/secrets-store/ExamplePassword
