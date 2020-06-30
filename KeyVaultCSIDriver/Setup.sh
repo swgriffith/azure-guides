@@ -36,6 +36,11 @@ export KV_ID=$(az keyvault show -g $RG -n $KV_NAME -o tsv --query id)
 az keyvault secret set --vault-name $KV_NAME --name "ExamplePassword" --value "FuzzyBunny"
 az keyvault secret show --name "ExamplePassword" --vault-name $KV_NAME
 
+############################################
+# IF NOT USING POD IDENTITY JUMP TO THE 
+# ManagedIdentityOnly.sh file from here
+############################################
+
 # Grant rights to the cluster Identity for Pod Identity
 az role assignment create --role "Managed Identity Operator" --assignee $CLUSTER_IDENTITY --scope /subscriptions/$SUBID/resourcegroups/$NODE_RESOURCE_GROUP
 az role assignment create --role "Virtual Machine Contributor" --assignee $CLUSTER_IDENTITY --scope /subscriptions/$SUBID/resourcegroups/$NODE_RESOURCE_GROUP
