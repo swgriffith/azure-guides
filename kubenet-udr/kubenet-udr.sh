@@ -1,11 +1,11 @@
 #!/bin/bash
-RG=EphAKSKubenetUDR3
-ACRNAME=kubenetdemoacr3
-CLUSTERNAME=kubenetudr3
+RG=EphAKSKubenetUDR
+ACRNAME=kubenetdemoacr
+CLUSTERNAME=kubenetudr
 LOCATION=eastus
-KEYVAULTNAME=griffkv4
+KEYVAULTNAME=kubenetudrvault
 FIREWALLNAME=aks-firewall
-LA_WORKSPACE_NAME=grifflademo
+LA_WORKSPACE_NAME=kubenetudrla
 
 # Create Resource Group
 az group create -n $RG -l eastus
