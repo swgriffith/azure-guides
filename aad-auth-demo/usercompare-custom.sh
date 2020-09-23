@@ -1,5 +1,5 @@
 #!/bin/bash
-RG=EphAADDemos3
+RG=EphAADDemos
 CLUSTERNAME=democluster
 
 mkdir temp

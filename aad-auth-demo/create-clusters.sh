@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RG=EphAADDemos3
+RG=EphAADDemos
 LOC=eastus
 CLUSTERNAME=democluster
 
@@ -14,6 +14,6 @@ az aks get-credentials -g $RG -n $CLUSTERNAME --admin
 
 # Create non-AAD Cluster
 az aks create -g $RG -n $CLUSTERNAME-aad -c 1 --enable-aad
-az aks get-credentials -g $RG -n $CLUSTERNAME
+az aks get-credentials -g $RG -n $CLUSTERNAME-aad
 
-kubectl use-context $CLUSTERNAME
+kubectl config use-context $CLUSTERNAME
