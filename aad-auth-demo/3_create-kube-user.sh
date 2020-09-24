@@ -4,7 +4,10 @@
 # Based on this gist from Henning Sprang
 # https://gist.github.com/henning/2dda0b704426c66e78e355703a8dc177
 ####################################################################
-CLUSTERNAME=democluster
+
+# Load Env Vars
+source 0_envvars.sh
+
 NAMESPACE=default
 USERNAME=griffith
 GROUPNAME=cloudnativegbb

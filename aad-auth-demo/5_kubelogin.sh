@@ -1,6 +1,7 @@
 #!/bin/bash
-RG=EphAADDemos
-CLUSTERNAME=democluster-aad
+
+# Load Env Vars
+source 0_envvars.sh
 
 echo "Create Service Principal..."
 az ad sp create-for-rbac --skip-assignment -o json > ./temp/sp.json

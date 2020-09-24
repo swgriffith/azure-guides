@@ -1,6 +1,7 @@
 #!/bin/bash
-RG=EphAADDemos
-CLUSTERNAME=democluster
+
+# Load Env Vars
+source 0_envvars.sh
 
 mkdir temp
 
