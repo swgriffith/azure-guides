@@ -9,5 +9,5 @@ roleRef:
   name: demo-reader
 subjects:
 - kind: User
-  name: "stephen.w.griffith@hotmail.com"
-  #name: "d984bcd3-f3c2-4cd2-8f70-06e8e01b8a20"
+  #name: "stephen.w.griffith@hotmail.com"
+  name: "d984bcd3-f3c2-4cd2-8f70-06e8e01b8a20"
