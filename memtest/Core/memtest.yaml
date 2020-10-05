@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memtest-core
+spec:
+  selector:
+    matchLabels:
+      app: memtest-core
+  template:
+    metadata:
+      labels:
+        app: memtest-core
+    spec:
+      containers:
+        - image: stevegriffith/memtest:core
+          imagePullPolicy: Always
+          name: memtest-core
+          # resources:
+          #   limits:
+          #     memory: "35Mi"
+      nodeSelector:
+        agentpool: win1
+      restartPolicy: Always
