@@ -2,6 +2,7 @@
 # AKS Networking Overview - Part 1: Kubenet
 
 ## Setup
+
 For this session we'll create a resource group with a Vnet, three subnets and two AKS Clusters.
 
 ### Create Resource Group, Vnet and Subnets
@@ -48,10 +49,11 @@ az network vnet subnet create \
     --resource-group $RG \
     --vnet-name aksvnet \
     --name services \
-    --address-prefix $SVC_LB_CIDR 
+    --address-prefix $SVC_LB_CIDR
 ```
 
 ### Create the Kubenet AKS Cluster
+
 ```bash
 ######################################
 # Create the Kubenet AKS Cluster
@@ -194,11 +196,11 @@ When traffic is leaving our node it can be destined for:
 1. A node in our current network
 1. A pod in a node in our current network
 
-For 1 & 2, we already saw above that our pod traffic will SNAT to the node IP address and will just go on their way along to their destination. For 3, however, the AKS kubenet implementation has an Azure Route Table that takes over. This route table it what tells Azure what node to route that pod traffic to. When nodes are added to an AKS kubenet cluster, the pod cidr is split into a /24 for each node. 
+For 1 & 2, we already saw above that our pod traffic will SNAT to the node IP address and will just go on their way along to their destination. For 3, however, the AKS kubenet implementation has an Azure Route Table that takes over. This route table is what tells Azure what node to route that pod traffic to. When nodes are added to an AKS kubenet cluster, the pod cidr is split into a /24 for each node.
 
 ![aks kubenet route table](./images/routetable.png)
 
-As you can see below, any traffic destined to pods in the 10.100.1.0/24 cidr will next hop to 10.220.1.4. Sure enough, if I look at the pods on that 
+As you can see below, any traffic destined to pods in the 10.100.1.0/24 cidr will next hop to 10.220.1.4. Sure enough, if I look at the pods on that node I can see that they all have ips in that 10.100.1.0/24 range.
 
 ```bash
 # Get nodes to see ips
@@ -232,5 +234,5 @@ Fig 3.
 ![kubenet wiring](./images/kubenet-wiring.JPG)
 
 ## References
-* [Understanding Azure Kubernetes Service
-Basic Networking](https://azuregulfblog.files.wordpress.com/2019/04/aks_basicnetwork_technicalpaper.pdf)
+
+* [Understanding Azure Kubernetes Service Basic Networking](https://azuregulfblog.files.wordpress.com/2019/04/aks_basicnetwork_technicalpaper.pdf)
