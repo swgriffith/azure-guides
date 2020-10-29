@@ -1,76 +1,41 @@
 
-# AKS Networking Overview - Part 1: Kubenet
+# AKS Networking Overview - Part 2: Azure CNI
 
 ## Setup
-For this session we'll create a resource group with a Vnet, three subnets and two AKS Clusters.
+We've been through the [kubenet implementation](./part1-kubenet.md), and now we're on to Azure CNI. Lets start by creating an Azure CNI based AKS cluster. We've already created the Vnet and Subnets, so all we need to do is create the cluster.
 
-### Create Resource Group, Vnet and Subnets
+Notice a few changes in the 'az aks create' command below.
 
-```bash
-RG=NetworkLab
-LOC=eastus
-VNET_CIDR="10.220.0.0/16"
-KUBENET_AKS_CIDR="10.220.1.0/24"
-AZURECNI_AKS_CIDR="10.220.2.0/24"
-SVC_LB_CIDR="10.220.3.0/24"
-
-# Create Resource Group
-az group create -n $RG -l $LOC
-
-# Create Vnet
-az network vnet create \
--g $RG \
--n aksvnet \
---address-prefix $VNET_CIDR
-
-# Create Kubenet AKS Cluster Subnet
-az network vnet subnet create \
-    --resource-group $RG \
-    --vnet-name aksvnet \
-    --name kubenet \
-    --address-prefix $KUBENET_AKS_CIDR
-
-# Get the Kubnet Subnet ID
-KUBENET_SUBNET_ID=$(az network vnet show -g $RG -n aksvnet -o tsv --query "subnets[?name=='kubenet'].id")
-
-# Create Azure CNI AKS Cluster Subnet
-az network vnet subnet create \
-    --resource-group $RG \
-    --vnet-name aksvnet \
-    --name azurecni \
-    --address-prefix $AZURECNI_AKS_CIDR
-
-# Get the Kubnet Subnet ID
-AZURECNI_SUBNET_ID=$(az network vnet show -g $RG -n aksvnet -o tsv --query "subnets[?name=='azurecni'].id")
-
-# Create the subnet for Kubernetes Service Load Balancers
-az network vnet subnet create \
-    --resource-group $RG \
-    --vnet-name aksvnet \
-    --name services \
-    --address-prefix $SVC_LB_CIDR 
-```
+* Cluster name to 'azurecni-cluster'
+* Network Plugin to 'azure'
+* Removed the '--pod-cidr' flag, as pods will be attached to the subnet directly
 
 ### Create the Kubenet AKS Cluster
 ```bash
+# We'll re-use the RG and LOC, so lets set those
+RG=NetworkLab
+LOC=eastus
+
+# Get the Azure CNI Subnet ID
+AZURECNI_SUBNET_ID=$(az network vnet show -g $RG -n aksvnet -o tsv --query "subnets[?name=='azurecni'].id")
+
 ######################################
-# Create the Kubenet AKS Cluster
-# Note: We set a pod cidr, service cidr
+# Create the Azure CNI AKS Cluster
+# Note: We set a service cidr
 # and dns service ip for demonstration
 # purposes, however these are optional
 #######################################
 az aks create \
 -g $RG \
--n kubenet-cluster \
---network-plugin kubenet \
---vnet-subnet-id $KUBENET_SUBNET_ID \
---pod-cidr "10.100.0.0/16" \
+-n azurecni-cluster \
+--network-plugin azure \
+--vnet-subnet-id $AZURECNI_SUBNET_ID \
 --service-cidr "10.200.0.0/16" \
 --dns-service-ip "10.200.0.10" \
 --enable-managed-identity
 
 # Get Credentials
-az aks get-credentials -g $RG -n kubenet-cluster
+az aks get-credentials -g $RG -n azurecni-cluster
 
 # Deploy 3 Nginx Pods across 3 nodes
 kubectl apply -f nginx.yaml
@@ -82,61 +47,63 @@ kubectl get pods -o wide --sort-by=.spec.nodeName # Sorted by node name
 
 ### Pod and Service CIDR behavior
 
-Notice from your get svc and pods calls that the private IP addresses are from the pod and serivce cidr ranges you specified at cluster creation, and not from you subnet cidr.
+Notice from your get svc and pods calls that, while the service ip addresses are from the service cidr we provided in cluster creation, the pods have IP addresses from the subnet cidr.
 
 ```bash
 # Subnet CIDR from network creation
-KUBENET_AKS_CIDR="10.220.1.0/24"
+AZURECNI_AKS_CIDR="10.220.2.0/24"
 
 # CIDR Values from 'az aks create'
---pod-cidr "10.100.0.0/16"
 --service-cidr "10.200.0.0/16"
 ```
 
 Fig. 1
-![Services and Pods](./images/kubenetsvcspods.png)
+![Services and Pods](./images/azurecnisvcpods.png)
 
-To dig a bit deeper, lets ssh into the node and explore the network configuration. For this we'll use [ssh-jump](https://github.com/yokawasa/kubectl-plugin-ssh-jump/blob/master/README.md) but there are various other options, including using priviledged containers. If you do ssh to a node, you'll need to [set up ssh access](https://docs.microsoft.com/en-us/azure/aks/ssh).
+As we did with kubenet, to dig a bit deeper, lets ssh into the node and explore the network configuration. Again, we'll use [ssh-jump](https://github.com/yokawasa/kubectl-plugin-ssh-jump/blob/master/README.md). Don't forget that you need to [set up ssh access](https://docs.microsoft.com/en-us/azure/aks/ssh) first.
 
 ```bash
 # Get a node name and ssh-jump to it
 # Make sure you jump to a node where one of your nginx pods is running
 kubectl get nodes
-NAME                                STATUS   ROLES   AGE    VERSION
-aks-nodepool1-27511634-vmss000000   Ready    agent   4d3h   v1.17.11
-aks-nodepool1-27511634-vmss000001   Ready    agent   4d3h   v1.17.11
-aks-nodepool1-27511634-vmss000002   Ready    agent   4d3h   v1.17.11
+NAME                                STATUS   ROLES   AGE   VERSION
+aks-nodepool1-44430483-vmss000000   Ready    agent   90m   v1.17.11
+aks-nodepool1-44430483-vmss000001   Ready    agent   90m   v1.17.11
+aks-nodepool1-44430483-vmss000002   Ready    agent   90m   v1.17.11
 
-kubectl ssh-jump aks-nodepool1-27511634-vmss000000
+kubectl ssh-jump aks-nodepool1-44430483-vmss000000
 
 # Get the docker id for the nginx pod
-kubectl get pods|grep nginx
-d01940d20034        nginx                                          "/docker-entrypoint.…"   24 minutes ago      Up 24 minutes                           k8s_nginx_nginx-7cf567cc7-8879g_default_33aa572a-8816-4635-b9c4-be315b270f27_0
-660dcdb7ed1c        mcr.microsoft.com/oss/kubernetes/pause:1.3.1   "/pause"                 24 minutes ago      Up 24 minutes                           k8s_POD_nginx-7cf567cc7-8879g_default_33aa572a-8816-4635-b9c4-be315b270f27_0
+docker ps|grep nginx
+8bdb2bd78165        nginx                                          "/docker-entrypoint.…"   26 minutes ago      Up 26 minutes                           k8s_nginx_nginx-7cf567cc7-5pvnj_default_56899928-244b-485e-846b-5302430a0c45_0
+1f840366a5ea        mcr.microsoft.com/oss/kubernetes/pause:1.3.1   "/pause"                 26 minutes ago      Up 26 minutes                           k8s_POD_nginx-7cf567cc7-5pvnj_default_56899928-244b-485e-846b-5302430a0c45_0
 ```
 
-Ok, wait....why do we have two containers for this single nginx pod? Go check out the [the almight pause container](https://www.ianlewis.org/en/almighty-pause-container). In short, the other container is the '/pause' container, which is the parent container for all contianers within a given Kubernetes pod.
+So far, all the same as when we tested with kubenet. We have two containers because of the /pause container we mentioned in part 1. Now lets dig into the newtork stack.
 
 ```bash
 # Get the pid for your container
-docker inspect --format '{{ .State.Pid }}' 660dcdb7ed1c
+docker inspect --format '{{ .State.Pid }}' 8bdb2bd78165
+6502
 
 # List the network interfaces for the pid
-sudo nsenter -t 14219 -n ip add
+sudo nsenter -t 6502 -n ip addr
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
        valid_lft forever preferred_lft forever
-3: eth0@if19: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether a6:89:88:b2:e5:a6 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    inet 10.100.1.14/24 scope global eth0
+14: eth0@if15: <BROADCAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether da:ab:42:26:64:0b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.220.2.13/24 scope global eth0
        valid_lft forever preferred_lft forever
 ```
 
-Notice the eth0 is @if19, meaning its attached to interface 19, but what is that? If we take a look at the host machine interfaces we can see that there is an interface with the index of 19 named "vethd3b9c108@if3" as you can see in the image below, @if3 and @if19 are the link between the container network interface and the host network interface, which happens to be a veth link.
+Ok, so this all look familiar as well. We have an eth0@if15. This interface has an IP address from our Azure CNI subnet. Now lets look at the host interfaces to see what we have going on there. Yup....looks the same as kubenet...mostly. We have an interface indexed at 14 named eth0@if15 in the container linked to an interface indexed at 15 on the host named azv292e1839522@if14....but that isnt a veth, so we need to dig a bit more.
 
 Fig 2.
-![veth link](./images/vethlink.png)
+![veth link](./images/cni-vethlink.png)
+
+
 
 Ok, so now we know how each container is connected to the a virtual ethernet interface on the host, but where does it get it's IP and how does it communicate out of the node? Our first hint is the 'cbr0' name listed in the 'ip addr' output for our veth.  Checking out the Kubernetes docs on [Kubenet](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#kubenet), we know that cbr0 is the bridge network created and managed by kubenet. We can see the interface in our 'ip addr' output. Also notice that the inet value for cbr0 is 10.100.1.1/24, which happens to be our pod cidr! So cbr0 is the bridge network that the veth links are joined to. We can confirm this by using the brctl command from bridge-utils. Notice all of our veth interfaces attached to cbr0.
 

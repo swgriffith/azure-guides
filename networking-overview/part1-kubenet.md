@@ -41,9 +41,6 @@ az network vnet subnet create \
     --name azurecni \
     --address-prefix $AZURECNI_AKS_CIDR
 
-# Get the Kubnet Subnet ID
-AZURECNI_SUBNET_ID=$(az network vnet show -g $RG -n aksvnet -o tsv --query "subnets[?name=='azurecni'].id")
-
 # Create the subnet for Kubernetes Service Load Balancers
 az network vnet subnet create \
     --resource-group $RG \
@@ -112,7 +109,7 @@ aks-nodepool1-27511634-vmss000002   Ready    agent   4d3h   v1.17.11
 kubectl ssh-jump aks-nodepool1-27511634-vmss000000
 
 # Get the docker id for the nginx pod
-kubectl get pods|grep nginx
+docker ps|grep nginx
 d01940d20034        nginx                                          "/docker-entrypoint.…"   24 minutes ago      Up 24 minutes                           k8s_nginx_nginx-7cf567cc7-8879g_default_33aa572a-8816-4635-b9c4-be315b270f27_0
 660dcdb7ed1c        mcr.microsoft.com/oss/kubernetes/pause:1.3.1   "/pause"                 24 minutes ago      Up 24 minutes                           k8s_POD_nginx-7cf567cc7-8879g_default_33aa572a-8816-4635-b9c4-be315b270f27_0
 ```
@@ -122,9 +119,10 @@ Ok, wait....why do we have two containers for this single nginx pod? Go check ou
 ```bash
 # Get the pid for your container
 docker inspect --format '{{ .State.Pid }}' 660dcdb7ed1c
+14219
 
 # List the network interfaces for the pid
-sudo nsenter -t 14219 -n ip add
+sudo nsenter -t 14219 -n ip addr
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
