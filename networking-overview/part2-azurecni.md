@@ -98,7 +98,7 @@ sudo nsenter -t 6502 -n ip addr
        valid_lft forever preferred_lft forever
 ```
 
-Ok, so this all look familiar as well. We have an eth0@if15. This interface has an IP address from our Azure CNI subnet. Now lets look at the host interfaces to see what we have going on there. Yup....looks the same as kubenet...mostly. We have an interface indexed at 14 named eth0@if15 in the container linked to an interface indexed at 15 on the host named azv292e1839522@if14....but that isnt a veth, so we need to dig a bit more.
+Ok, so this all look familiar as well. We have an eth0@if15. This interface has an IP address from our Azure CNI subnet. Now lets look at the host interfaces to see what we have going on there. Yup....looks the same as kubenet...mostly. We have an interface indexed at 14 named eth0@if15 in the container linked to an interface indexed at 15 on the host named azv292e1839522@if14. The naming is different (i.e. not veth...) but it's still a veth interface.
 
 Fig 2.
 ![veth link](./images/cni-vethlink.png)
