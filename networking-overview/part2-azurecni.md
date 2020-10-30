@@ -103,100 +103,37 @@ Ok, so this all look familiar as well. We have an eth0@if15. This interface has 
 Fig 2.
 ![veth link](./images/cni-vethlink.png)
 
+The last part of the wiring we're missing is understanding how an IP address from an Azure subnet gets assigned. This is where the CNI plugin, and it's associated IPAM plugin come into play. Looking at the Azure CNI docs we can see that there are log files for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
 
-
-Ok, so now we know how each container is connected to the a virtual ethernet interface on the host, but where does it get it's IP and how does it communicate out of the node? Our first hint is the 'cbr0' name listed in the 'ip addr' output for our veth.  Checking out the Kubernetes docs on [Kubenet](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#kubenet), we know that cbr0 is the bridge network created and managed by kubenet. We can see the interface in our 'ip addr' output. Also notice that the inet value for cbr0 is 10.100.1.1/24, which happens to be our pod cidr! So cbr0 is the bridge network that the veth links are joined to. We can confirm this by using the brctl command from bridge-utils. Notice all of our veth interfaces attached to cbr0.
-
-```bash
-# Install the bridge-utils package
-sudo apt update
-sudo apt install bridge-utils
-
-# Show the bridge networks on the server
-brctl show
-bridge name bridge id          STP enabled  interfaces
-cbr0        8000.160c0cac5660  no           veth9423965c
-                                            vetha1065ff2
-                                            vetha33f314e
-                                            vethcd3ab008
-                                            vethd3b9c108
-```
-
-Further, if we look at the routes defined on our machine we can see that any traffic destined for our pod cidr should be sent to that cbr0 bridge interface, and the traffic leaving our cbr0 bridge should go to the default route (0.0.0.0)...which uses eth0 and points to our network gateway address (10.220.1.1).
+Below is a very abbreviated version of what you'd see in your logs, but have a look through and see if you can see what's going on based on how we know the overall network stack works so far.
 
 ```bash
-# Get Routes
-route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-0.0.0.0         10.220.1.1      0.0.0.0         UG    0      0        0 eth0
-10.100.1.0      0.0.0.0         255.255.255.0   U     0      0        0 cbr0
-10.220.1.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0
-168.63.129.16   10.220.1.1      255.255.255.255 UGH   0      0        0 eth0
-169.254.169.254 10.220.1.1      255.255.255.255 UGH   0      0        0 eth0
-172.17.0.0      0.0.0.0         255.255.0.0     U     0      0        0 docker0
+# Tail the CNI logs
+tail /var/log/azure-vnet.log -f
 ```
 
-FINALLY, the bridge network has brought us to the NIC of our Azure node (eth0). So, now we have the network wiring in place to get packets from outside of our node to a given container, within a pod, and the wiring to get traffic out of a container and pod out through the node network interface card. There's more to cover as our packet traverses that path, in particular how Kubernetes uses iptables to direct traffic flow, but lets hold off on how iptables come into play until after we look at Azure CNI so we can compare how the Kubenet and CNI wiring differ.
+1. Processing ADD command with args {ContainerID:116419acc6958dbaa1f80380eee6762928ead0caec83d0174fc5daa91a110897 Netns:/proc/19263/ns/net IfName:eth0 Args:IgnoreUnknown=1;K8S_POD_NAMESPACE=default;K8S_POD_NAME=nginx-7cf567cc7-bgc82;K8S_POD_INFRA_CONTAINER_ID=116419acc6958dbaa1f80380eee6762928ead0caec83d0174fc5daa91a110897 Path:/opt/cni/bin StdinData:{"bridge":"azure0","cniVersion":"0.3.0","ipam":{"type":"azure-vnet-ipam"},"ipsToRouteViaHost":["169.254.20.10"],"mode":"bridge","name":"azure","type":"azure-vnet"}}
+1. Read network configuration...
+1. Found network azure with subnet 10.220.2.0/24...
+1. Calling plugin azure-vnet-ipam ADD ....
+1. Plugin azure-vnet-ipam returned result:IP:[{Version:4 Interface:<nil> Address:{IP:10.220.2.11 Mask:ffffff00}....
+1. Creating endpoint 116419ac-eth0
+1. Creating veth pair azvb1f7346f51b azvb1f7346f51b2
+1. Adding ARP reply rule for IP address 10.220.2.11/24
+1. Adding static arp for IP address 10.220.2.11/24 and MAC ea:99:18:36:3e:10 in VM
+1. Setting link azvb1f7346f51b2 netns /proc/19263/ns/net
+1. Adding IP address 10.220.2.11/24 to link eth0
 
-We still haven't seen how traffic from a container in one pod can reach a container in a pod on another node. This is one of the fundamental ways that Azure Kubernetes Service with the kubenet plugin differs from AKS with Azure CNI. Node to node traffic is directed by an Azure Route table. Before we look at the route table, one thing to know is that traffic between pods does not go through SNAT (Source NAT). That means that when a pod sends traffic to another pod, it retains it's pod ip.
+The short translated version of the above is as follows:
 
-**Note:** I know I said we'd cover iptables later, but just fyi...this is the set of rules that ensure packets originating from our pod cidr dont get SNAT'd to the node IP address. Notice the !10.100.0.0/16 for destination, meaning 'NOT 10.100.0.0/16' aka 'NOT our pod cidr'.
+1. The assignment of a new pod to a node triggered an 'ADD' call to the Azure CNI plugin on my node
+1. Azure CNI checked out the network configuration and found the subnet cidr
+1. Azure CNI asked the IPAM (IP Address Management) plugin to give it an available address
+1. IPAM responded with 10.220.2.11
+1. CNI proceeded to create the:
+    * The veth pair
+    * APR entry
+    * Assignment of the veth link to the container network namespace
+    * Association of the IP address with eth0
 
-```bash
-# Run iptables for the 'nat' table pulling the POSTROUTING chain...and do some formatting to make more pretty
-iptables -t nat -nL POSTROUTING --line-numbers
-Chain POSTROUTING (policy ACCEPT)
-num  target     prot opt source               destination
-1    KUBE-POSTROUTING  all  --  0.0.0.0/0            0.0.0.0/0            /* kubernetes postrouting rules */
-2    MASQUERADE  all  --  172.17.0.0/16        0.0.0.0/0
-3    MASQUERADE  all  --  0.0.0.0/0           !10.100.0.0/16        /* kubenet: SNAT for outbound traffic from cluster */ ADDRTYPE match dst-type !LOCAL
-```
-
-### Azure Route Table
-
-When traffic is leaving our node it can be destined for:
-
-1. Another network
-1. A node in our current network
-1. A pod in a node in our current network
-
-For 1 & 2, we already saw above that our pod traffic will SNAT to the node IP address and will just go on their way along to their destination. For 3, however, the AKS kubenet implementation has an Azure Route Table that takes over. This route table it what tells Azure what node to route that pod traffic to. When nodes are added to an AKS kubenet cluster, the pod cidr is split into a /24 for each node. 
-
-![aks kubenet route table](./images/routetable.png)
-
-As you can see below, any traffic destined to pods in the 10.100.1.0/24 cidr will next hop to 10.220.1.4. Sure enough, if I look at the pods on that 
-
-```bash
-# Get nodes to see ips
-kubectl get nodes -o wide
-NAME                                STATUS   ROLES   AGE     VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-aks-nodepool1-27511634-vmss000000   Ready    agent   5d23h   v1.17.11   10.220.1.4    <none>        Ubuntu 16.04.7 LTS   4.15.0-1096-azure   docker://19.3.12
-aks-nodepool1-27511634-vmss000001   Ready    agent   5d23h   v1.17.11   10.220.1.5    <none>        Ubuntu 16.04.7 LTS   4.15.0-1096-azure   docker://19.3.12
-aks-nodepool1-27511634-vmss000002   Ready    agent   5d23h   v1.17.11   10.220.1.6    <none>        Ubuntu 16.04.7 LTS   4.15.0-1096-azure   docker://19.3.12
-
-# Get pods for the node with ip 10.220.1.4 (aks-nodepool1-27511634-vmss000000)
-kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=aks-nodepool1-27511634-vmss000000
-NAMESPACE     NAME                                         READY   STATUS    RESTARTS   AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
-default       nginx-7cf567cc7-bnvk9                        1/1     Running   0          34m     10.100.1.18   aks-nodepool1-27511634-vmss000000   <none>           <none>
-kube-system   coredns-869cb84759-vdh55                     1/1     Running   0          5d23h   10.100.1.5    aks-nodepool1-27511634-vmss000000   <none>           <none>
-kube-system   coredns-autoscaler-5b867494f-25vlb           1/1     Running   5          6d      10.100.1.3    aks-nodepool1-27511634-vmss000000   <none>           <none>
-kube-system   dashboard-metrics-scraper-5ddb5bf5c8-ph4vs   1/1     Running   0          6d      10.100.1.4    aks-nodepool1-27511634-vmss000000   <none>           <none>
-kube-system   kube-proxy-2n62m                             1/1     Running   0          5d23h   10.220.1.4    aks-nodepool1-27511634-vmss000000   <none>           <none>
-```
-
-**Note:** Ignore the kube-proxy pod above, which has an ip of 10.220.1.4, which is the node ip. If you take a look at the definition of that pod you'll see that it attaches to the host network (*kubectl get pod kube-proxy-2n62m -n kube-system -o yaml|grep hostNetwork*)
-
-### Next
-
-Now that we have a good idea of how kubenet works in AKS, lets have a look at Azure CNI
-
-
-### Big Picture
-
-Fig 3.
-![kubenet wiring](./images/kubenet-wiring.JPG)
-
-## References
-* [Understanding Azure Kubernetes Service
-Basic Networking](https://azuregulfblog.files.wordpress.com/2019/04/aks_basicnetwork_technicalpaper.pdf)
+ 
