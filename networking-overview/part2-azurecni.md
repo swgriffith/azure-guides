@@ -103,7 +103,7 @@ Ok, so this all look familiar as well. We have an eth0@if15. This interface has 
 Fig 2.
 ![veth link](./images/cni-vethlink.png)
 
-The last part of the wiring we're missing is understanding how an IP address from an Azure subnet gets assigned. This is where the CNI plugin, and it's associated IPAM plugin come into play. Looking at the Azure CNI docs we can see that there are log files for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
+The last part of the wiring we're missing is understanding how an IP address from an Azure subnet gets assigned. This is where the CNI plugin, and it's associated IPAM plugin come into play. Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
 
 Below is a very abbreviated version of what you'd see in your logs, but have a look through and see if you can see what's going on based on how we know the overall network stack works so far.
 
