@@ -103,7 +103,40 @@ Ok, so this all look familiar as well. We have an eth0@if15. This interface has 
 Fig 2.
 ![veth link](./images/cni-vethlink.png)
 
-The last part of the wiring we're missing is understanding how an IP address from an Azure subnet gets assigned. This is where the CNI plugin, and it's associated IPAM plugin come into play. Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
+We can also see that our veth interface (azv292e1839522) is associated to a bridge network. In kubenet this bridge was called 'cbr0', and here it's called azure0. Lets install and run brctl like we did for kubenet.
+
+```bash
+# Install the bridge-utils package
+sudo apt update
+sudo apt install bridge-utils
+
+# Show the bridge networks on the server
+brctl show
+bridge name bridge id           STP enabled interfaces
+azure0      8000.000d3a8a50da   no          azv152f0ee345a
+                                            azv3f6157ae51b
+                                            azv8bdc5c14d80
+                                            azv8ec44ee2325
+                                            azvb1f7346f51b
+                                            eth0
+docker0		8000.0242e34adb87	no
+```
+
+Looks pretty much the same, but in this case eth0 is on the bridge. Now lets look at the routes on the host:
+
+```bash
+# Get Routes
+route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         10.220.2.1      0.0.0.0         UG    0      0        0 azure0
+10.220.2.0      0.0.0.0         255.255.255.0   U     0      0        0 azure0
+172.17.0.0      0.0.0.0         255.255.0.0     U     0      0        0 docker0
+```
+
+Nice! We can see that the azure0 interface has the subnet as it's gateway! We have the wiring from the container through to the network all sorted out. The only part we're missing is understanding how an IP address from an Azure subnet gets assigned, since there are multiple hosts constanly adding and dropping pods, and there-by adding and dropping ips.
+
+This is where the CNI plugin, and it's associated IPAM plugin come into play. Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
 
 Below is a very abbreviated version of what you'd see in your logs, but have a look through and see if you can see what's going on based on how we know the overall network stack works so far.
 
