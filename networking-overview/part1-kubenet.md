@@ -64,6 +64,7 @@ az aks create \
 --network-plugin kubenet \
 --vnet-subnet-id $KUBENET_SUBNET_ID \
 --pod-cidr "10.100.0.0/16" \
+# Service cidr can be smaller
 --service-cidr "10.200.0.0/16" \
 --dns-service-ip "10.200.0.10" \
 --enable-managed-identity
