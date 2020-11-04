@@ -62,7 +62,7 @@ sudo iptables -t nat -nvL KUBE-SERVICES|grep nginx
 
 In the above output, as already mentioned you'll see that we have a rule in the KUBE-SERVICES chain for each service in our cluster.  That's right....cluster level, not node level. You can see that by looking at the code comment for each, which shows the namespace and service name. If we look specifically at the nginx service, you can see that we have two rules.
 
-1. **KUBE-MARK-MASQ:** If you look closely you can see that this rule checks if the source is NOT 10.100.0.0/16, which happens to be our pod cidr, and then sends that traffice to the KUBE-MARK-MASQ chain. This is where the NAT happens for traffic destined for an address outside of the cluster.
+1. **KUBE-MARK-MASQ:** If you look closely you can see that this rule checks if the source is NOT 10.100.0.0/16, which happens to be our pod cidr, and then sends that traffice to the KUBE-MARK-MASQ chain. This is where packets have a mark applied to them to indicate they should go through Source NAT.
 
 1. **KUBE-SVC-XXXX:** This is the chain that handles loadbalancing of the traffic across multiple backend pods
 
@@ -137,3 +137,182 @@ nginx-7cf567cc7-8bt8r   1/1     Running   0          3h22m   10.100.0.9   aks-no
 nginx-7cf567cc7-jnxp4   1/1     Running   0          3h22m   10.100.2.2   aks-nodepool1-27511634-vmss000001   <none>           <none>
 ```
 
+## iptables in Azure CNI
+
+So we've seen how iptables handles traffic for pods in kubenet, so lets run through the same path for an Azure CNI node. Go ahead and ssh to one of your Azure CNI cluster nodes and take a look at the high level rules like we did for kubenet, and then we'll walk through at a lower level.
+
+```bash
+# List the chains and rules at a high level
+sudo iptables -nvL
+
+# List the chains and rules associated with the nat table
+sudo iptables -t nat -nvL
+```
+
+You'll see after running the above, that overall things look pretty similar. There is one additional chain called IP-MASQ-AGENT that we should take a look at in a bit.
+
+### KUBE-SERVICES
+
+```bash
+# Get the nat table chains and rules
+sudo iptables -t nat -nvL KUBE-SERVICES
+
+Chain KUBE-SERVICES (2 references)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.211.157       /* default/nginx: cluster IP */ tcp dpt:80
+    0     0 KUBE-SVC-4N57TFCL4MD7ZTDA  tcp  --  *      *       0.0.0.0/0            10.200.211.157       /* default/nginx: cluster IP */ tcp dpt:80
+    0     0 KUBE-MARK-MASQ  udp  --  *      *      !10.220.2.0/24        10.200.0.10          /* kube-system/kube-dns:dns cluster IP */ udp dpt:53
+    6   628 KUBE-SVC-TCOU7JCQXEZGVUNU  udp  --  *      *       0.0.0.0/0            10.200.0.10          /* kube-system/kube-dns:dns cluster IP */ udp dpt:53
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.0.10          /* kube-system/kube-dns:dns-tcp cluster IP */ tcp dpt:53
+    0     0 KUBE-SVC-ERIFXISQEP7F7OF4  tcp  --  *      *       0.0.0.0/0            10.200.0.10          /* kube-system/kube-dns:dns-tcp cluster IP */ tcp dpt:53
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.239.189       /* kube-system/metrics-server: cluster IP */ tcp dpt:443
+    0     0 KUBE-SVC-LC5QY66VUV2HJ6WZ  tcp  --  *      *       0.0.0.0/0            10.200.239.189       /* kube-system/metrics-server: cluster IP */ tcp dpt:443
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.75.15         /* kube-system/kubernetes-dashboard: cluster IP */ tcp dpt:443
+    0     0 KUBE-SVC-XGLOHA7QRQ3V22RZ  tcp  --  *      *       0.0.0.0/0            10.200.75.15         /* kube-system/kubernetes-dashboard: cluster IP */ tcp dpt:443
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.191.59        /* kube-system/dashboard-metrics-scraper: cluster IP */ tcp dpt:8000
+    0     0 KUBE-SVC-O33EAQYCTNTKHSTD  tcp  --  *      *       0.0.0.0/0            10.200.191.59        /* kube-system/dashboard-metrics-scraper: cluster IP */ tcp dpt:8000
+    0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.0.1           /* default/kubernetes:https cluster IP */ tcp dpt:443
+    0     0 KUBE-SVC-NPX46M4PTMTKRN6Y  tcp  --  *      *       0.0.0.0/0            10.200.0.1           /* default/kubernetes:https cluster IP */ tcp dpt:443
+   20  1200 KUBE-NODEPORTS  all  --  *      *       0.0.0.0/0            0.0.0.0/0            /* kubernetes service nodeports; NOTE: this must be the last rule in this chain */ ADDRTYPE match dst-type LOCAL
+
+# Grab the rules just for the nginx service
+sudo iptables -t nat -nvL KUBE-SERVICES|grep nginx
+
+0     0 KUBE-MARK-MASQ  tcp  --  *      *      !10.220.2.0/24        10.200.211.157       /* default/nginx: cluster IP */ tcp dpt:80
+0     0 KUBE-SVC-4N57TFCL4MD7ZTDA  tcp  --  *      *       0.0.0.0/0            10.200.211.157       /* default/nginx: cluster IP */ tcp dpt:80
+```
+
+So this looks pretty much exactly the same. Looking at the rules we have....
+
+1. **KUBE-MARK-MASQ:** Yet again, we see that if traffic is coming from a location other than the pod cidr, which in the Azure CNI case is the same as the subnet cidr....that traffic will get sent to the KUBE-MARK-MASQ chain, which as mentioned above, will mark the packet so that it can go through Source NAT later.
+
+1. **KUBE-SVC-XXXX:** This rule, as with kubenet, will send any traffic destined for our service IP address to the KUBE-SVC-XXXX chain.
+
+### KUBE-SVC-XXXX
+
+```bash
+# Using the name of our nginx KUBE-SVC chain, lets pull that detail
+sudo iptables -t nat -nvL KUBE-SVC-4N57TFCL4MD7ZTDA
+
+Chain KUBE-SVC-4N57TFCL4MD7ZTDA (1 references)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 KUBE-SEP-3OT3PH67SPCSYRVE  all  --  *      *       0.0.0.0/0            0.0.0.0/0            statistic mode random probability 0.33333333349
+    0     0 KUBE-SEP-E4OJANFAINTG7AV5  all  --  *      *       0.0.0.0/0            0.0.0.0/0            statistic mode random probability 0.50000000000
+    0     0 KUBE-SEP-JNUYOJDTS3SCVUAH  all  --  *      *       0.0.0.0/0            0.0.0.0/0
+```
+
+The behavior of the KUBE-SVC-XXXX chain is identical to the same chain in kubenet, so I wont run through that again.
+
+### KUBE-SEP-XXXX
+
+```bash
+# Using the name of one of the KUBE-SEP-XXXX chains, lets pull that detail
+sudo iptables -t nat -nvL KUBE-SEP-3OT3PH67SPCSYRVE
+
+Chain KUBE-SEP-3OT3PH67SPCSYRVE (1 references)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 KUBE-MARK-MASQ  all  --  *      *       10.220.2.28          0.0.0.0/0
+    0     0 DNAT       tcp  --  *      *       0.0.0.0/0            0.0.0.0/0            tcp to:10.220.2.28:80
+```
+
+Again, this is effectively identical to the path taken for kubenet, so no reason to go over that again.
+
+I did mention above that there is one additional chain we should look at that is not present in kubenet. It's called IP-MASQ-AGENT and it's triggered in the POST-ROUTINGas one of the very last steps as packets are leaving the cluster. Lets check this one out.
+
+### IP-MASQ-AGENT
+
+As noted above the IP-MASQ-AGENT chain is called by the POSTROUTING chain, as you can see below.
+
+```bash
+sudo iptables -t nat -nvL POSTROUTING
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+14204  860K KUBE-POSTROUTING  all  --  *      *       0.0.0.0/0            0.0.0.0/0            /* kubernetes postrouting rules */
+    0     0 MASQUERADE  all  --  *      !docker0  172.17.0.0/16        0.0.0.0/0
+14190  860K IP-MASQ-AGENT  all  --  *      *       0.0.0.0/0            0.0.0.0/0            /* ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ-AGENT chain */ ADDRTYPE match dst-type !LOCAL
+```
+
+Now lets look at what it does.
+
+```bash
+sudo iptables -t nat -nvL IP-MASQ-AGENT
+
+Chain IP-MASQ-AGENT (1 references)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.220.0.0/16        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.220.2.0/24        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.200.0.0/16        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+   14   911 MASQUERADE  all  --  *      *       0.0.0.0/0            0.0.0.0/0            /* ip-masq-agent: outbound traffic is subject to MASQUERADE (must be last in chain) */
+```
+
+Ok, so for any source (0.0.0.0/0) if the destination is 10.220.0.0/16 (vnet cidr) or 10.220.2.0/24 (subnet cidr) or 10.200.0.0/16 (service cidr) the traffic should go to the RETURN chain....which basically means that it should just go out as is. However, if none of those rules hit (i.e. the traffic is not destined for the vnet, subnet or a service in the cluster) the traffic SHOULD go to the MASQUERADE chain, where we know from above that it will go through Source NAT, which will set the source IP to the node IP.
+
+That's interesting. So only traffic within the vnet will really ever see the pod IP, which is good to know when you start thinking about Network Security Rules, network appliances, firewalls, etc.
+
+I wonder if we can change those settings. It does mention an ip-masq-agent, so lets see if we can find it.
+
+```bash
+# Lets check for any ip-masq pods in kube-system
+kubectl get pods -n kube-system -o wide|grep ip-masq
+azure-ip-masq-agent-g2dsn                    1/1     Running   0          4h52m   10.220.2.4    aks-nodepool1-44430483-vmss000000   <none>           <none>
+azure-ip-masq-agent-j27xx                    1/1     Running   0          4h53m   10.220.2.66   aks-nodepool1-44430483-vmss000002   <none>           <none>
+azure-ip-masq-agent-t5cpl                    1/1     Running   0          4h53m   10.220.2.35   aks-nodepool1-44430483-vmss000001   <none>           <none>
+
+# Now lets see if there are configmaps we can look at
+kubectl get configmaps -n kube-system|grep ip-masq
+azure-ip-masq-agent-config           1      4h55m
+```
+
+Yup...there it is along with a config map. Lets check that out.
+
+```bash
+kubectl get configmap azure-ip-masq-agent-config -n kube-system -o yaml
+apiVersion: v1
+data:
+  ip-masq-agent: |-
+    nonMasqueradeCIDRs:
+      - 10.220.0.0/16
+      - 10.220.2.0/24
+      - 10.200.0.0/16
+    masqLinkLocal: true
+    resyncInterval: 60s
+kind: ConfigMap
+```
+
+Great! There it is. So it looks like we may be able to modify the nonMasqueradeCIDRs to add some cidr blocks. Lets give it a try.
+
+```bash
+# Edit the config map and add a row to the nonMasqueradeCIDRS
+# I know...kubectl edit is evil...but we're just playing around here
+kubectl edit configmap azure-ip-masq-agent-config -n kube-system
+
+# Check the config
+kubectl get configmap azure-ip-masq-agent-config -n kube-system -o yaml
+apiVersion: v1
+data:
+  ip-masq-agent: |-
+    nonMasqueradeCIDRs:
+      - 10.220.0.0/16
+      - 10.220.2.0/24
+      - 10.200.0.0/16
+      - 10.1.0.0/16
+
+# Now lets see if that impacted our iptables
+sudo iptables -t nat -nvL IP-MASQ-AGENT
+
+Chain IP-MASQ-AGENT (1 references)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.220.0.0/16        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.220.2.0/24        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.200.0.0/16        /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            10.1.0.0/16          /* ip-masq-agent: local traffic is not subject to MASQUERADE */
+```
+
+Yup! We now have a new cidr block that will NOT go through SNAT.
+
+> **WARNING:** While with the above you can make sure that traffic leaving your vnet does not go through SNAT, depending on the target and potential virtual appliances in the middle you may end up getting your traffic dropped. The overall details of a pod packet may not match what is expected from a machine, and therefor may not be treated like machine traffic. Proceed with caution.
+
+## Conclusion
+
+Hopefully the above helped you understand the overall role that iptables play in both the kubnet and Azure CNI network plugin deployments. As you can see, overall they're almost identical.
