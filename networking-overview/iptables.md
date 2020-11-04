@@ -10,7 +10,7 @@ We're not going to go deep into how iptables work in this discussion, but there 
 
 Lets start by jumping back to our kubenet cluster, connecting to a node over ssh, and taking a look at the iptables entries over there. I'd recommend you read up on iptables and then run the following two commands and start to work through the chains to see if you can figure out whats going on. We'll only be reading these tables, not trying to apply any changes.
 
-```bash
+```
 # List the chains and rules at a high level
 sudo iptables -nvL
 
@@ -32,7 +32,7 @@ Let's walk through this.
 
 ### KUBE-SERVICES
 
-```bash
+```
 # Get the nat table chains and rules
 sudo iptables -t nat -nvL KUBE-SERVICES
 
@@ -68,7 +68,7 @@ In the above output, as already mentioned you'll see that we have a rule in the 
 
 ### KUBE-SVC-XXXX
 
-```bash
+```
 # Using the name of our nginx KUBE-SVC chain, lets pull that detail
 sudo iptables -t nat -nvL KUBE-SVC-4N57TFCL4MD7ZTDA
 
@@ -89,7 +89,7 @@ Looking at the above, we can see that we have three rules, each pointing to a ch
 
 If we were to scale up the service, we can see this chain get adjusted to a new set of probabilties.
 
-```bash
+```
 # Scale down to two
 # Note: Since this deployment uses topology constraints to span nodes
 # if you scale up on a three node cluster your new pod will go 'pending'
@@ -113,7 +113,7 @@ Notice in the above that we only have two rules now with a 50% probability appli
 
 So now lets check out the KUBE-SEP chain. Not exactly sure what 'SEP' stands for, but one of these days I'll dig into the docs and find it. Feel free to PR the details there. Let's have a look.
 
-```bash
+```
 # Grab one of the KUBE-SEP-XXXX names from the KUBE-SVC-XXXX chain and then pull the chain details
 sudo iptables -t nat -nvL KUBE-SEP-66QNMC7FITAI6UHV
 
@@ -129,7 +129,7 @@ In the above, we can finally see the last two rules applied.
 
 1. DNAT - This is where the packet IP is tweaked to finally provide the target IP for the pod. In this case we'll send the traffic to the pod with an ip of 10.100.0.9 at port 80 over tcp. Looking below we can see that the ip referenced in this rule will send traffic to the pod named 'nginx-7cf567cc7-8bt8r'
 
-```bash
+```
 kubectl get pods -o wide
 
 NAME                    READY   STATUS    RESTARTS   AGE     IP           NODE                                NOMINATED NODE   READINESS GATES
@@ -141,7 +141,7 @@ nginx-7cf567cc7-jnxp4   1/1     Running   0          3h22m   10.100.2.2   aks-no
 
 So we've seen how iptables handles traffic for pods in kubenet, so lets run through the same path for an Azure CNI node. Go ahead and ssh to one of your Azure CNI cluster nodes and take a look at the high level rules like we did for kubenet, and then we'll walk through at a lower level.
 
-```bash
+```
 # List the chains and rules at a high level
 sudo iptables -nvL
 
@@ -153,7 +153,7 @@ You'll see after running the above, that overall things look pretty similar. The
 
 ### KUBE-SERVICES
 
-```bash
+```
 # Get the nat table chains and rules
 sudo iptables -t nat -nvL KUBE-SERVICES
 
@@ -190,7 +190,7 @@ So this looks pretty much exactly the same. Looking at the rules we have....
 
 ### KUBE-SVC-XXXX
 
-```bash
+```
 # Using the name of our nginx KUBE-SVC chain, lets pull that detail
 sudo iptables -t nat -nvL KUBE-SVC-4N57TFCL4MD7ZTDA
 
@@ -205,7 +205,7 @@ The behavior of the KUBE-SVC-XXXX chain is identical to the same chain in kubene
 
 ### KUBE-SEP-XXXX
 
-```bash
+```
 # Using the name of one of the KUBE-SEP-XXXX chains, lets pull that detail
 sudo iptables -t nat -nvL KUBE-SEP-3OT3PH67SPCSYRVE
 
@@ -223,7 +223,7 @@ I did mention above that there is one additional chain we should look at that is
 
 As noted above the IP-MASQ-AGENT chain is called by the POSTROUTING chain, as you can see below.
 
-```bash
+```
 sudo iptables -t nat -nvL POSTROUTING
 
 Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
@@ -235,7 +235,7 @@ Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
 
 Now lets look at what it does.
 
-```bash
+```
 sudo iptables -t nat -nvL IP-MASQ-AGENT
 
 Chain IP-MASQ-AGENT (1 references)
@@ -252,7 +252,7 @@ That's interesting. So only traffic within the vnet will really ever see the pod
 
 I wonder if we can change those settings. It does mention an ip-masq-agent, so lets see if we can find it.
 
-```bash
+```
 # Lets check for any ip-masq pods in kube-system
 kubectl get pods -n kube-system -o wide|grep ip-masq
 azure-ip-masq-agent-g2dsn                    1/1     Running   0          4h52m   10.220.2.4    aks-nodepool1-44430483-vmss000000   <none>           <none>
@@ -266,7 +266,7 @@ azure-ip-masq-agent-config           1      4h55m
 
 Yup...there it is along with a config map. Lets check that out.
 
-```bash
+```
 kubectl get configmap azure-ip-masq-agent-config -n kube-system -o yaml
 apiVersion: v1
 data:
@@ -282,7 +282,7 @@ kind: ConfigMap
 
 Great! There it is. So it looks like we may be able to modify the nonMasqueradeCIDRs to add some cidr blocks. Lets give it a try.
 
-```bash
+```
 # Edit the config map and add a row to the nonMasqueradeCIDRS
 # I know...kubectl edit is evil...but we're just playing around here
 kubectl edit configmap azure-ip-masq-agent-config -n kube-system
