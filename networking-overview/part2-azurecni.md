@@ -203,7 +203,7 @@ The only other thing to look at, which we touched on in part 1, is how iptables 
 
 ### Next
 
-![IPTables](./iptables.md)
+[IPTables](./iptables.md)
 
 ### Big Picture
 

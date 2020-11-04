@@ -9,11 +9,12 @@ In this session we're going to deep dive into the network stack associated with 
   * [Azure CNI](./part2azurecni.md)
 * Network Policy: None/Azure/Calico
 * Outbound Type: Check out the session from [@RayKao](https://twitter.com/raykao)...[here](https://www.youtube.com/channel/UCvdABD6_HuCG_to6kVprdjQ)
+* [How iptables come into play](./iptables.md)
 * Debugging
   * [ssh-jump](https://github.com/yokawasa/kubectl-plugin-ssh-jump) - Create a jump server pod in your cluster and tunnels ssh through kubernetes port-forward
   * tcpdump - Native Linux command line tool. Run in host or pod. Check out this zine from [Julia Evans - @b0rk](https://twitter.com/b0rk)....[tcpdump](https://wizardzines.com/zines/tcpdump/)
   * [ksniff](https://github.com/eldadru/ksniff) - Creates a tcpdump proxy and can stream directly to [Wireshark](https://www.wireshark.org/)
-* Windows Networking
+* Windows Networking - TBD
 
 
 ## Network Feature Status
