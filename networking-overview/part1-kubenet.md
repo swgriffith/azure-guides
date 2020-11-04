@@ -49,6 +49,12 @@ az network vnet subnet create \
     --address-prefix $SVC_LB_CIDR
 ```
 
+### Pod and Service CIDR Sizes
+
+Before we create the cluster it's worth discussing the size of the address space (aka. cidr) for our pods and servcies. In both cases, when we're using kubenet the address range will be an 'overlay' network, which we'll explain further as we go through this guide. Since we'll generally have more pods than services in a given cluster, you can make the services cidr smaller than the pod cidr. For this walkthrough, however, I'm just leaving them both as /16.
+
+When we create services of type 'LoadBalancer' this will trigger the creation of an Azure Load Balancer either in the cluster subnet (by default), or optionally in a user specified subnet, at which point those services will consume private address space that you will likely want to conserve. Setting the target subnet for the creation of services of type LoadBalancer is a good practice to ensure better control of overall IP usage and to enable better control of routing and network security rules. See the Azure doc on [AKS Internal LBs](https://docs.microsoft.com/en-us/azure/aks/internal-lb#specify-a-different-subnet) to see how to apply a target subnet.
+
 ### Create the Kubenet AKS Cluster
 
 ```bash
@@ -64,7 +70,6 @@ az aks create \
 --network-plugin kubenet \
 --vnet-subnet-id $KUBENET_SUBNET_ID \
 --pod-cidr "10.100.0.0/16" \
-# Service cidr can be smaller
 --service-cidr "10.200.0.0/16" \
 --dns-service-ip "10.200.0.10" \
 --enable-managed-identity
@@ -99,6 +104,23 @@ Fig. 1
 To dig a bit deeper, lets ssh into the node and explore the network configuration. For this we'll use [ssh-jump](https://github.com/yokawasa/kubectl-plugin-ssh-jump/blob/master/README.md) but there are various other options, including using priviledged containers. If you do ssh to a node, you'll need to [set up ssh access](https://docs.microsoft.com/en-us/azure/aks/ssh).
 
 ```bash
+# Get the managed cluster resource group and scale set names
+CLUSTER_RESOURCE_GROUP=$(az aks show --resource-group $RG --name kubenet-cluster --query nodeResourceGroup -o tsv)
+SCALE_SET_NAME=$(az vmss list --resource-group $CLUSTER_RESOURCE_GROUP --query "[0].name" -o tsv)
+
+# Add your local public key to the VMSS to enable ssh access
+az vmss extension set  \
+    --resource-group $CLUSTER_RESOURCE_GROUP \
+    --vmss-name $SCALE_SET_NAME \
+    --name VMAccessForLinux \
+    --publisher Microsoft.OSTCExtensions \
+    --version 1.4 \
+    --protected-settings "{\"username\":\"azureuser\", \"ssh_key\":\"$(cat ~/.ssh/id_rsa.pub)\"}"
+
+az vmss update-instances --instance-ids '*' \
+    --resource-group $CLUSTER_RESOURCE_GROUP \
+    --name $SCALE_SET_NAME
+
 # Get a node name and ssh-jump to it
 # Make sure you jump to a node where one of your nginx pods is running
 kubectl get nodes
@@ -107,7 +129,8 @@ aks-nodepool1-27511634-vmss000000   Ready    agent   4d3h   v1.17.11
 aks-nodepool1-27511634-vmss000001   Ready    agent   4d3h   v1.17.11
 aks-nodepool1-27511634-vmss000002   Ready    agent   4d3h   v1.17.11
 
-kubectl ssh-jump aks-nodepool1-27511634-vmss000000
+# Use ssh-jump to access a node. Note that it may take a minute for the jump pod to come online
+kubectl ssh-jump <Insert a node name>
 
 # Get the docker id for the nginx pod
 docker ps|grep nginx
@@ -175,7 +198,7 @@ FINALLY, the bridge network has brought us to the NIC of our Azure node (eth0). 
 
 We still haven't seen how traffic from a container in one pod can reach a container in a pod on another node. This is one of the fundamental ways that Azure Kubernetes Service with the kubenet plugin differs from AKS with Azure CNI. Node to node traffic is directed by an Azure Route table. Before we look at the route table, one thing to know is that traffic between pods does not go through SNAT (Source NAT). That means that when a pod sends traffic to another pod, it retains it's pod ip.
 
-**Note:** I know I said we'd cover iptables later, but just fyi...this is the set of rules that ensure packets originating from our pod cidr dont get SNAT'd to the node IP address. Notice the !10.100.0.0/16 for destination, meaning 'NOT 10.100.0.0/16' aka 'NOT our pod cidr'.
+I know I said we'd cover iptables later, but just fyi...this is the set of rules that ensure packets originating from our pod cidr dont get SNAT'd to the node IP address. Notice the !10.100.0.0/16 for destination, meaning 'NOT 10.100.0.0/16' aka 'NOT our pod cidr'. That rule is saying that SNAT should ONLY happen for packets NOT destined for our cluster's pod cidr.
 
 ```bash
 # Run iptables for the 'nat' table pulling the POSTROUTING chain...and do some formatting to make more pretty

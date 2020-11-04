@@ -10,6 +10,12 @@ Notice a few changes in the 'az aks create' command below.
 * Network Plugin to 'azure'
 * Removed the '--pod-cidr' flag, as pods will be attached to the subnet directly
 
+### Pod and Service CIDR Sizes
+
+As noted in our kubenet walkthrough, the options we set on cluster creation will impact the size of the pod and service cidrs. The pod cidr will be based on the subnet, as noted above, however the service cidr will still be defined as a parameter on our cluster creation, and will ultimately translate to the creation of an overlay network within our cluster. As mentioned previously, this cidr can be smaller than the address space needed for pods.
+
+Again, as we noted in the kubenet overview, when a service of type 'LoadBalancer' is created, you will want to [specify a target subnet](https://docs.microsoft.com/en-us/azure/aks/internal-lb#specify-a-different-subnet) where the Azure Loadbalancer frontend will live.
+
 ### Create the Kubenet AKS Cluster
 ```bash
 # We'll re-use the RG and LOC, so lets set those
@@ -30,7 +36,6 @@ az aks create \
 -n azurecni-cluster \
 --network-plugin azure \
 --vnet-subnet-id $AZURECNI_SUBNET_ID \
-# Service cidr can be smaller
 --service-cidr "10.200.0.0/16" \
 --dns-service-ip "10.200.0.10" \
 --enable-managed-identity
@@ -64,6 +69,23 @@ Fig. 1
 As we did with kubenet, to dig a bit deeper, lets ssh into the node and explore the network configuration. Again, we'll use [ssh-jump](https://github.com/yokawasa/kubectl-plugin-ssh-jump/blob/master/README.md). Don't forget that you need to [set up ssh access](https://docs.microsoft.com/en-us/azure/aks/ssh) first.
 
 ```bash
+# Get the managed cluster resource group and scale set names
+CLUSTER_RESOURCE_GROUP=$(az aks show --resource-group $RG --name azurecni-cluster --query nodeResourceGroup -o tsv)
+SCALE_SET_NAME=$(az vmss list --resource-group $CLUSTER_RESOURCE_GROUP --query "[0].name" -o tsv)
+
+# Add your local public key to the VMSS to enable ssh access
+az vmss extension set  \
+    --resource-group $CLUSTER_RESOURCE_GROUP \
+    --vmss-name $SCALE_SET_NAME \
+    --name VMAccessForLinux \
+    --publisher Microsoft.OSTCExtensions \
+    --version 1.4 \
+    --protected-settings "{\"username\":\"azureuser\", \"ssh_key\":\"$(cat ~/.ssh/id_rsa.pub)\"}"
+
+az vmss update-instances --instance-ids '*' \
+    --resource-group $CLUSTER_RESOURCE_GROUP \
+    --name $SCALE_SET_NAME
+
 # Get a node name and ssh-jump to it
 # Make sure you jump to a node where one of your nginx pods is running
 kubectl get nodes
@@ -72,7 +94,8 @@ aks-nodepool1-44430483-vmss000000   Ready    agent   90m   v1.17.11
 aks-nodepool1-44430483-vmss000001   Ready    agent   90m   v1.17.11
 aks-nodepool1-44430483-vmss000002   Ready    agent   90m   v1.17.11
 
-kubectl ssh-jump aks-nodepool1-44430483-vmss000000
+# Use ssh-jump to access a node. Note that it may take a minute for the jump pod to come online
+kubectl ssh-jump <Insert your node name>
 
 # Get the docker id for the nginx pod
 docker ps|grep nginx
@@ -135,11 +158,11 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 172.17.0.0      0.0.0.0         255.255.0.0     U     0      0        0 docker0
 ```
 
-Nice! We can see that the azure0 interface has the subnet gateway IP as it's gateway, so azure0 interacts directly with the subnet! We have the wiring from the container through to the network all sorted out. The only part we're missing is understanding how an IP address from an Azure subnet gets assigned, since there are multiple hosts constanly adding and dropping pods, and there-by adding and dropping ips.
+Nice! We can see that the azure0 interface has the subnet gateway IP as it's gateway, so azure0 interacts directly with the subnet! Also we can see that inbound traffic for our cluster address space (10.220.2.0/24) will also use the azure0 network.
 
-This is where the CNI part of Azure CNI comes into play. Azure CNI is an implementation of the Container Network Interface specification. Azure CNI is deployed on each node, and defined as the CNI plugin when the kubelet process starts. Additionally, CNI implementations are reponsible for providing an IPAM implementation for IP address assignment. 
+We have the wiring from the container through to the network all sorted out. The only part we're missing is understanding how an IP address from an Azure subnet gets assigned, since there are multiple hosts constantly adding and dropping pods and there-by adding and dropping ips. This is where the CNI part of Azure CNI comes into play. Azure CNI is an implementation of the [Container Network Interface](https://github.com/containernetworking/cni/blob/master/README.md) specification. Azure CNI is deployed on each node, and defined via a flag as the CNI plugin when the kubelet process starts. Additionally, CNI implementations are reponsible for providing an IPAM (IP Address Management) implementation for IP address assignment.
 
-Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through those log.
+Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through that log.
 
 Below is a very abbreviated version of what you'd see in your logs, but have a look through and see if you can see what's going on based on how we know the overall network stack works so far.
 
@@ -174,9 +197,13 @@ The short translated version of the above is as follows:
 
 ### Finally!
 
-From all of the above we can see that, largely, the network stack is the same between kubenet and Azure CNI. Both rely on veth interfaces bound between a bridge network and the container network namespace. The difference comes in at the CNI and IPAM level. With kubenet the implementation creates an overlay network within the bridge which the IPAM uses to assign pod IP address, where in the Azure CNI we're using the Azure CNI plugin and IPAM to handle ip assignment from the cluster/nodepool subnet rather than creating an overlay.
+From all of the above we can see that, largely, the network stack is the same between kubenet and Azure CNI. Both rely on veth interfaces bound between a bridge network and the container network namespace. The difference comes in at the CNI and IPAM level. With kubenet the implementation creates an overlay network within the bridge which the IPAM uses to assign pod IP address, where with Azure CNI we're using the Azure CNI plugin and IPAM to handle ip assignment from the cluster/nodepool subnet rather than creating an overlay.
 
-The only other thing to look at, which we touched on in part 1, is how iptables come into the picture.
+The only other thing to look at, which we touched on in part 1, is how iptables come into the picture. Let's dig into the iptables rules in both kubenet and Azure CNI, breifly.
+
+### Next
+
+![IPTables](./iptables.md)
 
 ### Big Picture
 
