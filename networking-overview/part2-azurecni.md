@@ -160,7 +160,9 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 
 Nice! We can see that the azure0 interface has the subnet gateway IP as it's gateway, so azure0 interacts directly with the subnet! Also we can see that inbound traffic for our cluster address space (10.220.2.0/24) will also use the azure0 network.
 
-We have the wiring from the container through to the network all sorted out. The only part we're missing is understanding how an IP address from an Azure subnet gets assigned, since there are multiple hosts constantly adding and dropping pods and there-by adding and dropping ips. This is where the CNI part of Azure CNI comes into play. Azure CNI is an implementation of the [Container Network Interface](https://github.com/containernetworking/cni/blob/master/README.md) specification. Azure CNI is deployed on each node, and defined via a flag as the CNI plugin when the kubelet process starts. Additionally, CNI implementations are reponsible for providing an IPAM (IP Address Management) implementation for IP address assignment.
+> **NOTE:** In this walk through we are NOT covering the impact of network policy on the above. There are some key key changes to the above introduced by a network policy plugin. For more information I created this side bar post on [bridge vs. transparent mode](./bridge-vs-transparent.md) you can check out.
+
+We have the wiring from the container through to the network all sorted out. The only part we're missing is understanding how an IP address from an Azure subnet gets assigned, since there are multiple hosts constantly adding and dropping pods and there-by adding and dropping ips. This is where the CNI part of Azure CNI comes into play. Azure CNI is an implementation of the [Container Network Interface](https://github.com/containernetworking/cni/blob/master/README.md) specification. Azure CNI is deployed on each node, and defined via a flag as the CNI plugin when the kubelet process starts. Additionally, CNI implementations are responsible for providing an IPAM (IP Address Management) implementation for IP address assignment.
 
 Looking at the [Azure CNI docs](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md) we can see that there are [log files](https://github.com/Azure/azure-container-networking/blob/master/docs/cni.md#logs) for the CNI available at /var/log/azure-vnet.log. If I tail that file I can see the CNI plugin checking in from time to time (about every 5s) on the network interfaces. If I delete and re-apply my nginx deployment...now I can see all the magic flowing through that log.
 
@@ -209,3 +211,7 @@ The only other thing to look at, which we touched on in part 1, is how iptables 
 
 Fig 3.
 ![kubenet wiring](./images/cni-wiring.jpeg)
+
+### References
+
+* [Azure CNI Technical Deep Dive](https://azure.microsoft.com/en-us/blog/integrating-azure-cni-and-calico-a-technical-deep-dive/)
