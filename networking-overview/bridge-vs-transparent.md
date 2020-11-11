@@ -3,7 +3,7 @@
 
 ## Overview
 
-In our Azure CNI Overview (check it out [here](./part2-azurecni.md) if you haven't already), we assumed no network policy is deployed on our cluster. When you enable network policy there are a few fundamental changes that are probably worth calling out. I'm going to focus on Calico network policy in AKS, which is implemented using open source Calico.
+In our [Azure CNI](./part2-azurecni.md) and [Kubenet](./part1-kubenet.md) overviews, we assumed no network policy is deployed on our cluster. When you enable network policy there are a few fundamental changes that are probably worth calling out. I'm going to focus on Calico network policy in AKS, which is implemented using open source Calico.
 
 ## Azure CNI
 
