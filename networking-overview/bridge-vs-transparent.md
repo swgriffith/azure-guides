@@ -7,7 +7,7 @@ In our [Azure CNI](./part2-azurecni.md) and [Kubenet](./part1-kubenet.md) overvi
 
 ## Azure CNI
 
-If we take a look at the ['Technical Deep Dive'](https://azure.microsoft.com/en-us/blog/integrating-azure-cni-and-calico-a-technical-deep-dive/) doc for Azure CNI we see that when you implement network policy on a cluster there is one fundamental change. We move from 'bridge mode' to 'transparent mode' networking. What does that actually mean? Well, we can see it very quickly and easily be running either the kubenet or azure cni deployments we already talked about, setting the '--network-policy calico' flag and then running through the same analysis we've already shown in [part1](./part1-kubenet.md) and [part2](./part2-azurecni.md) of our networking overview.
+If we take a look at the ['Technical Deep Dive'](https://azure.microsoft.com/en-us/blog/integrating-azure-cni-and-calico-a-technical-deep-dive/) doc for Azure CNI we see that when you implement network policy on a cluster there is one fundamental change. We move from 'bridge mode' to 'transparent mode' networking. What does that actually mean? Well, we can see it very quickly and easily by running either the kubenet or azure cni deployments we already talked about, setting the '--network-policy calico' flag and then running through the same analysis we've already shown in [part1](./part1-kubenet.md) and [part2](./part2-azurecni.md) of our networking overview.
 
 ```bash
 # We'll re-use the RG and LOC, so lets set those
@@ -36,7 +36,7 @@ kubectl get svc
 kubectl get pods -o wide --sort-by=.spec.nodeName # Sorted by node name
 ```
 
-Now lets run through the network stack. Again, you'll need to set up ssh access to the node. See part1 or part 2 for details.
+Now lets run through the network stack. Again, you'll need to set up ssh access to the node. See part1 or part2 for details.
 
 ```bash
 # Get the process id for our nginx deployment
@@ -110,7 +110,7 @@ So you should be able to see the difference pretty quickly. First of all, we don
 
 ### Kubenet
 
-Rather than running through the full setup again, I'll just show you the output of the same set of commands. Lets check out the interfaces, bridges and routes.
+Rather than running through the full setup again, I'll just show you the output of the same set of commands on a kubenet cluster I created with Calico for network policy. Lets check out the interfaces, bridges and routes.
 
 ```bash
 # Check out the pod interface
@@ -182,7 +182,7 @@ As you can see, once we introduce network policy, we lose the bridge networks an
 
 ### Conclusion
 
-So across both Kubenet and Azure CNI, once you implement network policy we transition from Bridge Mode to Transparent mode. Based on what we've seen above this essentially translates to the removal of the bridge network (cbr0 or azure0) and the introduction of routes directly on the host to control the packet flow.
+So across both Kubenet and Azure CNI, once you implement network policy we transition from 'Bridge Mode' to 'Transparent mode'. Based on what we've seen above this essentially translates to the removal of the bridge network (cbr0 or azure0) and the introduction of routes directly on the host to control the packet flow.
 
 ### References
 
