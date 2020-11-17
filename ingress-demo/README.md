@@ -29,5 +29,9 @@ helm install nginx-ingress ingress-nginx/ingress-nginx \
     --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux 
 ```
 
+Now we create the ingress object that links the ingress controller to the backend service.
 
+```bash
+kubectl apply -f ingress.yaml -n ingress-demo
+```
 
