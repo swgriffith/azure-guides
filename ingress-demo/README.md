@@ -32,6 +32,14 @@ helm install nginx-ingress ingress-nginx/ingress-nginx \
 Now we create the ingress object that links the ingress controller to the backend service.
 
 ```bash
+# Create the ingress route
 kubectl apply -f ingress.yaml -n ingress-demo
-```
 
+# Get the ingress IP
+ubectl get ingress -n ingress-demo
+NAME             HOSTS   ADDRESS      PORTS   AGE
+webapp-ingress   *       20.185.9.2   80      24m
+
+# Curl the endpoint
+curl http://20.185.9.2/myapp
+```
