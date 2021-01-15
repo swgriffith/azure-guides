@@ -68,7 +68,7 @@ az container create \
 #--azure-file-volume-mount-path /home/$SFTPUSER
 
 # Grant the user ownership of the share
-az container exec -g $RG -n sftp --exec-command "chown -R griffith /home/$SFTPUSER"
+#az container exec -g $RG -n sftp --exec-command "chown -R griffith /home/$SFTPUSER"
 
 # Get Container IP for later use
 SFTP_IP=$(az container show -g $RG -n sftp --query 'ipAddress.ip' -o tsv)
