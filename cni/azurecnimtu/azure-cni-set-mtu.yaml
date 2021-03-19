@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: false
       priorityClassName: system-node-critical      
       containers:
-        - name: aks-nvme-ssd-provisioner
+        - name: sed
           image: busybox
           imagePullPolicy: Always
           securityContext:
