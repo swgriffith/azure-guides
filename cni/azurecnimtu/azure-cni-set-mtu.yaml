@@ -15,6 +15,7 @@ spec:
         name: cni-edit
     spec:
       automountServiceAccountToken: false
+      priorityClassName: system-node-critical      
       containers:
         - name: aks-nvme-ssd-provisioner
           image: busybox
