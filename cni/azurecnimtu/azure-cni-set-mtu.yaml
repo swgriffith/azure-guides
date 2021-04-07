@@ -26,7 +26,7 @@ spec:
             - mountPath: config
               name: cni-netd
           command: [ "/bin/sh", "-c", "--" ]
-          args: ['while true;do sed -i ''s#"mtu": 1500#"mtu": 3900#g'' /config/10-containerd-net.conflist; sleep 30; done;']
+          args: ['while true;do sed -i ''s#"mtu": 1500#"mtu": 3900#g'' /config/10-containerd-net.conflist; ip link set cbr0 mtu 3900; sleep 30; done;']
       volumes:
         - name: cni-netd
           hostPath:
