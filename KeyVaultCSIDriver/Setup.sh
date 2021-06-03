@@ -10,7 +10,7 @@ export TENANTID="<InsertTenantID>"
 az group create -n $RG -l $LOC
 
 # Create Cluster with Managed Identity Enabled
-az aks create -n $CLUSTER_NAME -g $RG --kubernetes-version 1.16.9 --node-count 1 --enable-managed-identity
+az aks create -n $CLUSTER_NAME -g $RG --node-count 1 --enable-managed-identity
 
 # Get Cluster Credentials
 az aks get-credentials -g $RG -n $CLUSTER_NAME
