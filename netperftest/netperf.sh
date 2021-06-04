@@ -2,14 +2,35 @@
 export SERVERPOOL=nodepool1
 export CLIENTPOOL=pool2
 
-#kubectl get nodes -l agentpool=$SERVERPOOL -o jsonpath='{.items[*].status.addresses[?(@.type == "InternalIP")].address}'
-#kubectl get pods -l app=iperf3-server -o jsonpath='{.items[*].status.podIP}'
-
-# Create iPerf3 server daemonset
-kubectl apply -f iperf3.yaml
-
 # Create iPerf3 Client Jobs
 for iperfserver in $(kubectl get pods -l app=iperf3-server -o jsonpath='{.items[*].status.podIP}')
+do
+cat <<EOF | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: iperf-client
+  name: iperf-client-$iperfserver
+spec:
+  template:
+    spec:
+      nodeSelector:
+        agentpool: $CLIENTPOOL
+      containers:
+      - name: iperf3-client
+        image: networkstatic/iperf3
+        args: ['-c',$iperfserver]
+      restartPolicy: Never
+EOF
+done
+
+#!/bin/bash
+export SERVERPOOL=pool2
+export CLIENTPOOL=nodepool1
+
+# Create iPerf3 Client Jobs
+for iperfserver in $(kubectl get pods -l app=iperf3-server-b -o jsonpath='{.items[*].status.podIP}')
 do
 cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
@@ -39,6 +60,7 @@ for job in $(kubectl get jobs --selector app=iperf-client --output=jsonpath='{.i
 do
   for pod in $(kubectl get pods --selector=job-name=$job --output=jsonpath='{.items[*].metadata.name}')
   do
+  echo "-----Logs forL $pod"
   kubectl logs $pod
   done
 done
