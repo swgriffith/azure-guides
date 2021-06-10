@@ -1,5 +1,6 @@
 #!/bin/bash
-export CONTROL_HOST=$1
+echo 'Input: '$1
+CONTROL_HOST=$1
 ssh -o "StrictHostKeyChecking no" $USER@$CONTROL_HOST 'sudo cp /etc/rancher/k3s/k3s.yaml ~/;sudo chown $USER:$USER k3s.yaml'
 mkdir .kube
 scp -o "StrictHostKeyChecking no" $USER@$CONTROL_HOST:~/k3s.yaml ./.kube/config
