@@ -11,4 +11,5 @@ sed -i 's/127.0.0.1/'$CONTROL_HOST'/g' ./.kube/config
 
 # Login to Azure with the vm managed identity
 az login --identity
+az config set extension.use_dynamic_install=yes_without_prompt
 az extension add --name connectedk8s
