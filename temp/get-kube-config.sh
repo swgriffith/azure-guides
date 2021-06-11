@@ -7,7 +7,7 @@ chmod 744 ~/.kube/config
 sed -i 's/127.0.0.1/'$CONTROL_HOST'/g' ./.kube/config 
 
 # Wait for cloud-init to finish
-while [ ! -f /tmp/cloud-init-done ]; do echo 'Not Ready';sleep 5; done
+while [ ! -f /tmp/cloud-init-done ]; do echo 'Waiting for cloud-init to complete.';sleep 5; done
 
 # Login to Azure with the vm managed identity
 az login --identity
