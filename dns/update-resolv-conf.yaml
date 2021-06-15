@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: resolvconf-edit
+  labels:
+    app: resolvconf-edit
+spec:
+  selector:
+    matchLabels:
+      name: resolvconf-edit
+  template:
+    metadata:
+      labels:
+        name: resolvconf-edit
+    spec:
+      automountServiceAccountToken: false
+      priorityClassName: system-node-critical      
+      containers:
+        - name: sed
+          image: busybox
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /host/resolv.conf
+              name: etc
+          command: [ "/bin/sh", "-c", "--" ]
+          args: ["while true;do cp /host/resolv.conf /tmp/resolv.conf;sed -i ''s/reddog.microsoft.com/griffithhomelab.net/g'' /tmp/resolv.conf;cat /tmp/resolv.conf > /host/resolv.conf;sleep 60;done;"]
+      volumes:
+        - name: etc
+          hostPath:
+            path: /etc/resolv.conf
