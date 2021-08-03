@@ -75,7 +75,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-11-01' = {
   }
 }
 
-module control 'modules/k3s/control.bicep' = {
+module control 'modules/control.bicep' = {
   name: '${controlName}-deployment'
   params: {
     name: controlName 
@@ -86,7 +86,7 @@ module control 'modules/k3s/control.bicep' = {
   }
 }
 
-module jump 'modules/k3s/jump.bicep' = {
+module jump 'modules/jump.bicep' = {
   name: '${jumpName}-deployment'
   params: {
     name: jumpName 
@@ -97,7 +97,7 @@ module jump 'modules/k3s/jump.bicep' = {
   }
 }
 
-module workers 'modules/k3s/workers.bicep' = {
+module workers 'modules/workers.bicep' = {
   name: '${workerName}-deployment'
   params: {
     name: workerName 

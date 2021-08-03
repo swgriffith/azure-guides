@@ -1,5 +1,16 @@
+#!/bin/bash
+
+echo 'Starting branch delpoyment!!!'
+
 # Set Variables from var.sh
+if [[ $1 != 'bicep' ]]
+then
+echo "Loading Parameters from var.sh"
 source ./var.sh
+else
+echo "Bicep deployment!"
+echo "Parameters loaded from environment variables"
+fi
 
 # Show Params
 show_params() {
