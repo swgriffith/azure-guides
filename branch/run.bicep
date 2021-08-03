@@ -28,7 +28,6 @@ resource userAssignedMI 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-1
 
 resource roleassignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
   name: guid(contributorDefId, resourceGroup().id)
-  scope: resourceGroup()
   properties: {
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', contributorDefId)
