@@ -1,0 +1,19 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: my-emqx-dashboard-ingressroute
+  namespace: default
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: HostSNI(`emqxdashboard.stevegriffith.io`)
+      services:
+      - name: my-emqx
+        namespace: default
+        port: 18083
+  tls:
+    secretName: emqxdashboard.stevegriffith.io
+    
