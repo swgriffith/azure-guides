@@ -6,7 +6,7 @@ while [ ! -f /tmp/cloud-init-done ]; do echo 'Waiting for cloud-init to complete
 ssh -o "StrictHostKeyChecking no" $USER@$CONTROL_HOST 'sudo cp /etc/rancher/k3s/k3s.yaml ~/;sudo chown $USER:$USER k3s.yaml'
 mkdir .kube
 scp -o "StrictHostKeyChecking no" $USER@$CONTROL_HOST:~/k3s.yaml ./.kube/config
-chmod 744 ~/.kube/config
+chmod 600 ~/.kube/config
 sed -i 's/127.0.0.1/'$CONTROL_HOST'/g' ./.kube/config 
 
 # Login to Azure with the vm managed identity
