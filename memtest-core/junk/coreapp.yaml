@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coreapp
+spec:
+  selector:
+    matchLabels:
+      app: coreapp
+  template:
+    metadata:
+      labels:
+        app: coreapp
+    spec:
+      containers:
+        - image: mcr.microsoft.com/dotnet/core/samples:aspnetapp
+          imagePullPolicy: Always
+          name: coreapp
+          # resources:
+          #   limits:
+          #     memory: "60Mi"
+      nodeSelector:
+        agentpool: win1
+      restartPolicy: Always
+

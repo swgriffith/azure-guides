@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: iperf3-server-ds
+  labels:
+    app: iperf3-server
+spec:
+  selector:
+    matchLabels:
+      app: iperf3-server
+  template:
+    metadata:
+      labels:
+        app: iperf3-server
+    spec:
+      nodeSelector:
+        agentpool: nodepool1
+      containers:
+      - name: iperf3-server
+        image: networkstatic/iperf3
+        args: ['-s']
+        ports:
+        - containerPort: 5201
+          name: server
+      terminationGracePeriodSeconds: 0
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: iperf3-server-ds-b
+  labels:
+    app: iperf3-server-b
+spec:
+  selector:
+    matchLabels:
+      app: iperf3-server-b
+  template:
+    metadata:
+      labels:
+        app: iperf3-server-b
+    spec:
+      nodeSelector:
+        agentpool: pool2
+      containers:
+      - name: iperf3-server
+        image: networkstatic/iperf3
+        args: ['-s']
+        ports:
+        - containerPort: 5201
+          name: server
+      terminationGracePeriodSeconds: 0
+

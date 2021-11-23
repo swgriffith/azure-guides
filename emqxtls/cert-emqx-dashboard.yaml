@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: emqxdashboard.stevegriffith.io
+  namespace: default
+spec:
+  dnsNames:
+    - emqxdashboard.stevegriffith.io
+  secretName: emqxdashboard.stevegriffith.io
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

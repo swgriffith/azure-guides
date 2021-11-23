@@ -1,0 +1,49 @@
+# Source: ingress-nginx/templates/admission-webhooks/job-patch/job-createSecret.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nginx-ingress-ingress-nginx-admission-create
+  namespace: test
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: ingress-nginx-4.0.8
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: nginx-ingress
+    app.kubernetes.io/version: "1.0.5"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+spec:
+  template:
+    metadata:
+      name: nginx-ingress-ingress-nginx-admission-create
+      labels:
+        helm.sh/chart: ingress-nginx-4.0.8
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/instance: nginx-ingress
+        app.kubernetes.io/version: "1.0.5"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: admission-webhook
+    spec:
+      containers:
+        - name: create
+          image: "k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1@sha256:64d8c73dca984af206adf9d6d7e46aa550362b1d7a01f3a0a91b20cc67868660"
+          imagePullPolicy: IfNotPresent
+          args:
+            - create
+            - --host=nginx-ingress-ingress-nginx-controller-admission,nginx-ingress-ingress-nginx-controller-admission.$(POD_NAMESPACE).svc
+            - --namespace=$(POD_NAMESPACE)
+            - --secret-name=nginx-ingress-ingress-nginx-admission
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      restartPolicy: OnFailure
+      serviceAccountName: nginx-ingress-ingress-nginx-admission
+      nodeSelector: 
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000

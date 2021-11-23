@@ -1,0 +1,136 @@
+{
+  "name": "string",
+  "type": "Microsoft.ContainerService/managedClusters",
+  "apiVersion": "2020-03-01",
+  "location": "string",
+  "tags": {},
+  "properties": {
+    "kubernetesVersion": "string",
+    "dnsPrefix": "string",
+    "agentPoolProfiles": [
+      {
+        "count": "integer",
+        "vmSize": "string",
+        "osDiskSizeGB": "integer",
+        "vnetSubnetID": "string",
+        "maxPods": "integer",
+        "osType": "string",
+        "maxCount": "integer",
+        "minCount": "integer",
+        "enableAutoScaling": "boolean",
+        "type": "string",
+        "mode": "string",
+        "orchestratorVersion": "string",
+        "availabilityZones": [
+          "string"
+        ],
+        "enableNodePublicIP": "boolean",
+        "scaleSetPriority": "string",
+        "scaleSetEvictionPolicy": "string",
+        "spotMaxPrice": "number",
+        "tags": {},
+        "nodeLabels": {},
+        "nodeTaints": [
+          "string"
+        ],
+        "name": "string"
+      }
+    ],
+    "linuxProfile": {
+      "adminUsername": "string",
+      "ssh": {
+        "publicKeys": [
+          {
+            "keyData": "string"
+          }
+        ]
+      }
+    },
+    "windowsProfile": {
+      "adminUsername": "string",
+      "adminPassword": "string"
+    },
+    "servicePrincipalProfile": {
+      "clientId": "string",
+      "secret": "string"
+    },
+    "addonProfiles": {},
+    "nodeResourceGroup": "string",
+    "enableRBAC": "boolean",
+    "enablePodSecurityPolicy": "boolean",
+    "networkProfile": {
+      "networkPlugin": "string",
+      "networkPolicy": "string",
+      "networkMode": "string",
+      "podCidr": "string",
+      "serviceCidr": "string",
+      "dnsServiceIP": "string",
+      "dockerBridgeCidr": "string",
+      "outboundType": "string",
+      "loadBalancerSku": "string",
+      "loadBalancerProfile": {
+        "managedOutboundIPs": {
+          "count": "integer"
+        },
+        "outboundIPPrefixes": {
+          "publicIPPrefixes": [
+            {
+              "id": "string"
+            }
+          ]
+        },
+        "outboundIPs": {
+          "publicIPs": [
+            {
+              "id": "string"
+            }
+          ]
+        },
+        "effectiveOutboundIPs": [
+          {
+            "id": "string"
+          }
+        ],
+        "allocatedOutboundPorts": "integer",
+        "idleTimeoutInMinutes": "integer"
+      }
+    },
+    "aadProfile": {
+      "managed": "boolean",
+      "adminGroupObjectIDs": [
+        "string"
+      ],
+      "clientAppID": "string",
+      "serverAppID": "string",
+      "serverAppSecret": "string",
+      "tenantID": "string"
+    },
+    "autoScalerProfile": {
+      "balance-similar-node-groups": "string",
+      "scan-interval": "string",
+      "scale-down-delay-after-add": "string",
+      "scale-down-delay-after-delete": "string",
+      "scale-down-delay-after-failure": "string",
+      "scale-down-unneeded-time": "string",
+      "scale-down-unready-time": "string",
+      "scale-down-utilization-threshold": "string",
+      "max-graceful-termination-sec": "string"
+    },
+    "apiServerAccessProfile": {
+      "authorizedIPRanges": [
+        "string"
+      ],
+      "enablePrivateCluster": "boolean"
+    },
+    "diskEncryptionSetID": "string",
+    "identityProfile": {}
+  },
+  "identity": {
+    "type": "string"
+  },
+  "sku": {
+    "name": "Basic",
+    "tier": "string"
+  },
+  "resources": []
+}

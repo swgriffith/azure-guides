@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "value": "canadacentral"
+        },
+        "environment_name": {
+            "value": "myenvironment"
+        },
+        "containerappName": {
+            "value": "testapp"
+        },
+        "log_analytics_customer_id": {
+            "value": "060f5e8a-3894-4883-aa67-10ef0478053c"
+        },
+        "log_analytics_shared_key": {
+            "value": ""
+        }
+    }
+}

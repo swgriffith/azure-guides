@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: ubuntu
+  name: ubuntu
+spec:
+  containers:
+  - image: ubuntu
+    name: ubuntu
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "while true; do sleep 30; done;" ]
+  restartPolicy: Never

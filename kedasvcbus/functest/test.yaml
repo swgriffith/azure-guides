@@ -1,0 +1,67 @@
+data:
+  AzureWebJobsStorage: VXNlRGV2ZWxvcG1lbnRTdG9yYWdlPXRydWU=
+  FUNCTIONS_WORKER_RUNTIME: ZG90bmV0
+  AzureWebJobsServiceBus: RW5kcG9pbnQ9c2I6Ly9zdmNidXNrZWRhLnNlcnZpY2VidXMud2luZG93cy5uZXQvO1NoYXJlZEFjY2Vzc0tleU5hbWU9bXlzYnNhcztTaGFyZWRBY2Nlc3NLZXk9VW0xWGVKZGxrK1IrMzQ5UWxNTU9aOHBPOVArMzJUN0JhZVNISTJwS2xMND07
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+  labels:
+    app: test
+spec:
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: svcbuskeda.azurecr.io/test:latest
+        env:
+        - name: AzureFunctionsJobHost__functions__0
+          value: svcbustest
+        envFrom:
+        - secretRef:
+            name: test
+        readinessProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+        startupProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: test
+  labels: {}
+spec:
+  scaleTargetRef:
+    name: test
+  triggers:
+  - type: azure-servicebus
+    metadata:
+      queueName: testqueue
+      connectionFromEnv: 'AzureWebJobsServiceBus'
+---
+

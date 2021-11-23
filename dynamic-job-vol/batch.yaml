@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+ name: generator
+spec:
+ parallelism: 10
+ template:
+   metadata:
+     name: generator
+   spec:
+     restartPolicy: OnFailure
+     containers:
+       - image: ubuntu
+         name: generator
+         command: ["/bin/bash"]
+         args: ["-c", "echo $RANDOM >> /mnt/azure/random.txt"]
+         env:
+         - name: MOUNT_PATH
+           valueFrom:
+            fieldRef:
+             fieldPath: metadata.name
+         volumeMounts:
+         - name: blob-nfs-vol
+           mountPath: /mnt/azure
+           subPathExpr: $(MOUNT_PATH)
+     volumes:
+     - name: blob-nfs-vol
+       persistentVolumeClaim:
+         claimName: pvc-blob-nfs

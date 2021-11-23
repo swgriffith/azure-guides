@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coreapp-bigger
+spec:
+  selector:
+    matchLabels:
+      app: coreapp-bigger
+  template:
+    metadata:
+      labels:
+        app: coreapp-bigger
+    spec:
+      containers:
+        - image: mcr.microsoft.com/dotnet/core/samples:aspnetapp
+          imagePullPolicy: Always
+          name: coreapp-bigger
+          # resources:
+          #   limits:
+          #     memory: "60Mi"
+      nodeSelector:
+        agentpool: winbig
+      restartPolicy: Always
+

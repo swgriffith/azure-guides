@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ubuntu-iperf
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    run: server
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: server
+  name: server
+spec:
+  containers:
+  - image: ubuntu
+    name: ubuntu
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "while true; do sleep 30; done;" ]
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    kubernetes.io/hostname: aks-nodepool1-11886499-vmss000001
+  restartPolicy: Never

@@ -1,0 +1,88 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerappName": {
+            "type": "String"
+        },
+        "environment_name": {
+            "type": "String"
+        },
+        "location": {
+            "type": "String"
+        },
+        "log_analytics_customer_id": {
+            "type": "String"
+        },
+        "log_analytics_shared_key": {
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "name": "[parameters('environment_name')]",
+            "type": "Microsoft.Web/kubeEnvironments",
+            "location": "[parameters('location')]",
+            "apiVersion": "2021-03-01",
+            "tags": {},
+            "properties": {
+                "type": "managed",
+                "appLogsConfiguration": {
+                    "destination": "log-analytics",
+                    "logAnalyticsConfiguration": {
+                        "customerId": "[parameters('log_analytics_customer_id')]",
+                        "sharedKey": "[parameters('log_analytics_shared_key')]"
+                    }
+                }
+            }
+        },
+        {
+            "name": "[parameters('containerappName')]",
+            "type": "Microsoft.Web/containerApps",
+            "apiVersion": "2021-03-01",
+            "kind": "containerapp",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/kubeEnvironments', parameters('environment_name'))]"
+            ],
+            "properties": {
+                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('environment_name'))]",
+                "configuration": {
+                    "activeRevisionsMode": "single",
+                    "ingress": {
+                        "external": true,
+                        "targetPort": 80
+                    },
+                    "secrets": []
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "stevegriffith/appa:latest",
+                            "name": "myapp",
+                            "env": []
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 1,
+                        "maxReplicas": 10,
+                        "rules": [
+                            {
+                                "name": "httpscalingrule",
+                                "http": {
+                                    "metadata": {
+                                        "concurrentRequests": "100"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "dapr": {
+                        "enabled": false
+                    }
+                }
+            }
+        }
+    ]
+}

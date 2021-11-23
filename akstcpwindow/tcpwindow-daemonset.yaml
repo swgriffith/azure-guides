@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: netconf-edit
+  labels:
+    app: netconf-edit
+spec:
+  selector:
+    matchLabels:
+      name: netconf-edit
+  template:
+    metadata:
+      labels:
+        name: netconf-edit
+    spec:
+      automountServiceAccountToken: false
+      priorityClassName: system-node-critical      
+      containers:
+        - name: netconfedit
+          image: busybox
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: config
+              name: etc
+          command: [ "/bin/sh", "-c", "--" ]
+          args: [ "echo ''net.core.wmem_max=4194304'' >> config/sysctl.conf;echo ''net.core.rmem_max=12582912'' >> config/sysctl.conf;sysctl -p;while true; do sleep 30; done;" ]              
+          # args: [ "echo ''net.core.wmem_max=4194304'' >> config/sysctl.conf;echo ''net.core.rmem_max=12582912'' >> config/sysctl.conf;echo ''net.ipv4.tcp_rmem = 4096 87380 4194304'' >> config/sysctl.conf;echo ''net.ipv4.tcp_wmem = 4096 87380 4194304'' >> config/sysctl.conf;sysctl -p;while true; do sleep 30; done;" ]              
+      volumes:
+        - name: etc
+          hostPath:
+            path: /etc

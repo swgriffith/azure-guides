@@ -1,0 +1,34 @@
+# Source: ingress-nginx/templates/controller-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    helm.sh/chart: ingress-nginx-4.0.8
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: nginx-ingress
+    app.kubernetes.io/version: "1.0.5"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: nginx-ingress-ingress-nginx-controller
+  namespace: test
+spec:
+  type: LoadBalancer
+  ipFamilyPolicy: SingleStack
+  ipFamilies: 
+    - IPv4
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+      appProtocol: http
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8081
+      appProtocol: https
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: nginx-ingress
+    app.kubernetes.io/component: controller

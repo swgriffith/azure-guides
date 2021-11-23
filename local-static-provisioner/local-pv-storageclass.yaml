@@ -1,0 +1,8 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-disks
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer  # Immediate is not supported
+reclaimPolicy: Delete  # available values: Delete, Retain

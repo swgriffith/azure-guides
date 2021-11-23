@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: cni-edit
+  labels:
+    app: cni-edit
+spec:
+  selector:
+    matchLabels:
+      name: cni-edit
+  template:
+    metadata:
+      labels:
+        name: cni-edit
+    spec:
+      automountServiceAccountToken: false
+      priorityClassName: system-node-critical      
+      containers:
+        - name: sed
+          image: busybox
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: config
+              name: cni-netd
+          command: [ "/bin/sh", "-c", "--" ]
+          args: ['while true;do sed -i ''s#"mtu": 1500#"mtu": 3900#g'' /config/10-containerd-net.conflist; ip link set cbr0 mtu 3900; sleep 30; done;']
+      volumes:
+        - name: cni-netd
+          hostPath:
+            path: /etc/cni/net.d

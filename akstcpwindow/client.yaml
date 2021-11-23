@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: client
+  name: client
+spec:
+  containers:
+  - image: ubuntu
+    name: ubuntu
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "while true; do sleep 30; done;" ]
+  nodeSelector:
+    kubernetes.io/hostname: aks-nodepool1-11886499-vmss000000
+  restartPolicy: Never

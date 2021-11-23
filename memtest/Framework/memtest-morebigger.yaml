@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memtest-morebigger
+spec:
+  selector:
+    matchLabels:
+      app: memtest-morebigger
+  template:
+    metadata:
+      labels:
+        app: memtest-morebigger
+    spec:
+      containers:
+        - image: stevegriffith/memtest:4.8-windowsservercore-ltsc2019 
+          imagePullPolicy: Always
+          name: memtest
+          resources:
+            limits:
+              memory: "60Mi"
+      nodeSelector:
+        agentpool: winbig
+      restartPolicy: Always
