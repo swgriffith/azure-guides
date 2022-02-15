@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: prometheus-scaledobject
+  namespace: httpscaledemo
+  labels:
+    deploymentName: myapp-http
+spec:
+  scaleTargetRef:
+    name: webapp
+  pollingInterval: 15
+  cooldownPeriod:  30
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server.httpscaledemo.svc.cluster.local
+      metricName: process_connections
+      threshold: '12'
+      query: nginx_ingress_controller_nginx_process_connections{state="active"}
