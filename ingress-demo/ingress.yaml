@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: webapp-ingress
@@ -8,11 +8,19 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
+  tls:
+  - hosts:
+    - test.stevegriffith.io
+    secretName: tls-secret-zpvj6
   rules:
   - http:
       paths:
-      - backend:
-          serviceName: webapp-svc
-          servicePort: 80
-        path: /myapp
+      - path: /myapp
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp-svc
+            port: 
+              number: 80

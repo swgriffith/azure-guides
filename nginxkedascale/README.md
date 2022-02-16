@@ -53,6 +53,7 @@ helm repo update
 helm install ingress-controller ingress-nginx/ingress-nginx \
 --namespace httpscaledemo \
 --set controller.metrics.enabled=true \
+--set controller.autoscaling.enabled=true \
 --set-string controller.podAnnotations."prometheus\.io/scrape"="true" \
 --set-string controller.podAnnotations."prometheus\.io/port"="10254"
 
@@ -69,4 +70,22 @@ kubectl apply -f ingress.yaml -n httpscaledemo
 kubectl get svc,pods -n httpscaledemo
 
 # Open your browser and navigate to http://<nginx-ingress public ip>/myapp
+```
+
+Deploy the ScaledObject
+
+```bash
+kubectl apply -f keda-prom.yml
+```
+
+After a few minutes you should see the number of webapp pods drop from 3, which was set in the deployment, to 1 which is the min pods for the scaled object.
+
+Run some load against the site and watch for the pods to scale. I used [hey](https://github.com/rakyll/hey). 
+
+```bash
+# In one terminal window
+hey -z 5m -c 20 --disable-keepalive http://<Insert you Ingress Public IP>/myapp
+
+# In another terminal window
+watch kubectl get pods -n httpscaledemo
 ```

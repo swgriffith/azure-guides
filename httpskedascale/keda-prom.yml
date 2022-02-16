@@ -14,8 +14,7 @@ spec:
   triggers:
   - type: prometheus
     metadata:
-      serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local
+      serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
       metricName: process_connections
       threshold: '10'
-      #query: sum(nginx_ingress_controller_nginx_process_connections{state="active"})
-      query: sum(haproxy_frontend_http_requests_rate_max)
+      query: sum(rate(haproxy_backend_loadbalanced_total[1m]))
