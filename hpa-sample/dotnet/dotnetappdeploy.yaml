@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clippy
+spec:
+  selector:
+    matchLabels:
+      run: clippy
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: clippy
+    spec:
+      containers:
+      - name: clippy
+        image: stevegriffith/clippyfunc
+        env:
+          - name: COMPlus_gcServer
+            value: "0"
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 500m
+            memory: 300Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clippy
+  labels:
+    run: clippy
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    run: clippy
+
