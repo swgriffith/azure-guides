@@ -4,7 +4,7 @@
 
 This test was run on an aks cluster running Kubernetes version 1.21.9. No special configuration was applied to the cluster (i.e. default 'az aks create')
 
-The test application is a simple dotnet 6 app build using the functions core tools version 4. You can find the source code and Dockerfile [here](https://github.com/swgriffith/clippyfunc/tree/master/src/clippyfunc6.)
+The test application is a simple dotnet 6 app build using the functions core tools version 4. You can find the source code and Dockerfile [here](https://github.com/swgriffith/clippyfunc/tree/master/src/clippyfunc6)
 
 The Kubernetes manifest include the deployment, service (type: LoadBalancer) and the HPA configuration, using autoscaling/v2beta2. 
 
@@ -184,5 +184,7 @@ kubectl apply -f dotnetappdeploy.yaml
 deployment.apps/clippy configured
 service/clippy unchanged
 ```
+
+
 
 Run the test again:
