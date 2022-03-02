@@ -14,10 +14,10 @@ spec:
     spec:
       containers:
       - name: clippy
-        image: stevegriffith/clippyfunc
-        env:
-          - name: COMPlus_gcServer
-            value: "0"
+        image: stevegriffith/clippyfunc:6.0
+        # env:
+        #   - name: COMPlus_gcServer
+        #     value: "0"
         ports:
         - containerPort: 80
         resources:
