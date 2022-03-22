@@ -14,12 +14,12 @@ spec:
     spec:
       shareProcessNamespace: true
       containers:
-      - name: dotnettools
-        image: stevegriffith/dotnettools:6.0    
-        command: [ "/bin/bash", "-c", "--" ]
-        args: [ "while true; do sleep 30; done;" ]
+      # - name: dotnettools
+      #   image: stevegriffith/dotnettools:6.0    
+      #   command: [ "/bin/bash", "-c", "--" ]
+      #   args: [ "while true; do sleep 30; done;" ]
       - name: clippy
-        image: stevegriffith/clippyfunc:6.0
+        image: stevegriffith/clippyfunc:6.0-gc2
         # env:
         #   - name: COMPlus_gcServer
         #     value: "0"
@@ -28,10 +28,10 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 100Mi
+            memory: 80Mi
           requests:
             cpu: 200m
-            memory: 100Mi
+            memory: 80Mi
 ---
 apiVersion: v1
 kind: Service
