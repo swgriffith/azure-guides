@@ -7,10 +7,10 @@ These are my quick notes for CKA prep.
 Provisioning in Azure and using my default local .ssh profile. You may need to adjust the commands below if you which to use something other than ~/.ssh/id_rsa.pub (ex. password auth). I'm also using an existing Vnet/Subnet that is connected to my home S2S VPN (i.e. no need for public IPs), so you should modify the below to match your prefered infra setup.
 
 ```bash
-RG=EphCKAInfra
+RG=EphCKA2
 LOC=eastus
 VNET_NAME=azure-eastus-vnet
-SUBNET_ID=/subscriptions/<subscription ID>/resourceGroups/networkinfra/providers/Microsoft.Network/virtualNetworks/azure-eastus-vnet/subnets/cka
+SUBNET_ID=/subscriptions/62afe9fc-190b-4f18-95ac-e5426017d4c8/resourceGroups/networkinfra/providers/Microsoft.Network/virtualNetworks/azure-eastus-vnet/subnets/cka
 VNET_RG=networkinfra
 
 # Create the resource group
@@ -20,14 +20,14 @@ az network nsg create \
 --resource-group $RG \
 --name kubeadm
 
-az network nsg rule create \
---resource-group $RG \
---nsg-name kubeadm \
---name kubeadmssh \
---protocol tcp \
---priority 1000 \
---destination-port-range 22 \
---access allow
+# az network nsg rule create \
+# --resource-group $RG \
+# --nsg-name kubeadm \
+# --name kubeadmssh \
+# --protocol tcp \
+# --priority 1000 \
+# --destination-port-range 22 \
+# --access allow
 
 az network nsg rule create \
 --resource-group $RG \
@@ -74,6 +74,8 @@ az vm create \
 
 This is based on the upstream docs, as well as [this guide](https://blog.nillsf.com/index.php/2021/10/29/setting-up-kubernetes-on-azure-using-kubeadm/) from [Nills Franssens](https://twitter.com/NillsF).
 
+For this walkthough I'll intentionally target an older version of Kubernetes, so we can upgrade it later.
+
 ```bash
 ######################################################################
 # Install pre-reqs
@@ -90,8 +92,22 @@ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
 echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt update
-sudo apt -y install vim git curl wget kubelet kubeadm kubectl containerd;
+sudo apt -y install vim git curl wget containerd;
 
+# Check for available versions of kubeadm
+sudo apt-cache madison kubeadm
+   kubeadm |  1.23.5-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.23.4-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.23.3-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.23.2-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.23.1-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.23.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.22.8-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.22.7-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+
+# Choose an older version and run the following, replacing the version number
+sudo apt-get install -y kubectl=1.21.11-00 kubelet=1.21.11-00 kubeadm=1.21.11-00
+  
 sudo apt-mark hold kubelet kubeadm kubectl containerd
 
 kubectl version --client && kubeadm version
@@ -200,26 +216,26 @@ We should now have a running cluster!
 
 ```bash
 kubeadmin@ctrl-node1:~$ kubectl get nodes,svc,pods -A -o wide
-NAME                STATUS   ROLES                  AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-node/ctrl-node1     Ready    control-plane,master   96m   v1.23.5   10.10.8.4     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
-node/worker-node1   Ready    <none>                 19m   v1.23.5   10.10.8.5     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
-node/worker-node2   Ready    <none>                 16m   v1.23.5   10.10.8.6     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
+NAME                STATUS   ROLES                  AGE     VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
+node/ctrl-node1     Ready    control-plane,master   6m37s   v1.21.11   10.10.8.4     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
+node/worker-node1   Ready    <none>                 4m28s   v1.21.11   10.10.8.5     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
+node/worker-node2   Ready    <none>                 4m25s   v1.21.11   10.10.8.6     <none>        Ubuntu 18.04.6 LTS   5.4.0-1072-azure   containerd://1.5.5
 
-NAMESPACE     NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE   SELECTOR
-default       service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP                  96m   <none>
-kube-system   service/kube-dns     ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   96m   k8s-app=kube-dns
+NAMESPACE     NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE     SELECTOR
+default       service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP                  6m34s   <none>
+kube-system   service/kube-dns     ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   6m33s   k8s-app=kube-dns
 
-NAMESPACE     NAME                                     READY   STATUS    RESTARTS      AGE   IP          NODE           NOMINATED NODE   READINESS GATES
-kube-system   pod/coredns-64897985d-sh9fr              1/1     Running   0             96m   10.32.0.3   ctrl-node1     <none>           <none>
-kube-system   pod/coredns-64897985d-x28wf              1/1     Running   0             96m   10.32.0.2   ctrl-node1     <none>           <none>
-kube-system   pod/etcd-ctrl-node1                      1/1     Running   0             96m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/kube-apiserver-ctrl-node1            1/1     Running   0             96m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/kube-controller-manager-ctrl-node1   1/1     Running   0             96m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/kube-proxy-lm972                     1/1     Running   0             96m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/kube-proxy-npqtn                     1/1     Running   0             19m   10.10.8.5   worker-node1   <none>           <none>
-kube-system   pod/kube-proxy-xbs5r                     1/1     Running   0             16m   10.10.8.6   worker-node2   <none>           <none>
-kube-system   pod/kube-scheduler-ctrl-node1            1/1     Running   0             96m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/weave-net-57mfs                      2/2     Running   1 (87m ago)   87m   10.10.8.4   ctrl-node1     <none>           <none>
-kube-system   pod/weave-net-hv2x5                      2/2     Running   0             19m   10.10.8.5   worker-node1   <none>           <none>
-kube-system   pod/weave-net-qhsxk                      2/2     Running   0             16m   10.10.8.6   worker-node2   <none>           <none>
+NAMESPACE     NAME                                     READY   STATUS    RESTARTS   AGE     IP          NODE           NOMINATED NODE   READINESS GATES
+kube-system   pod/coredns-558bd4d5db-psxmt             1/1     Running   0          6m18s   10.32.0.2   ctrl-node1     <none>           <none>
+kube-system   pod/coredns-558bd4d5db-xqxmk             1/1     Running   0          6m18s   10.32.0.3   ctrl-node1     <none>           <none>
+kube-system   pod/etcd-ctrl-node1                      1/1     Running   0          6m27s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/kube-apiserver-ctrl-node1            1/1     Running   0          6m27s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/kube-controller-manager-ctrl-node1   1/1     Running   0          6m27s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/kube-proxy-79xt8                     1/1     Running   0          4m28s   10.10.8.5   worker-node1   <none>           <none>
+kube-system   pod/kube-proxy-dhn45                     1/1     Running   0          6m19s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/kube-proxy-jb57s                     1/1     Running   0          4m25s   10.10.8.6   worker-node2   <none>           <none>
+kube-system   pod/kube-scheduler-ctrl-node1            1/1     Running   0          6m27s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/weave-net-44wv2                      2/2     Running   1          5m54s   10.10.8.4   ctrl-node1     <none>           <none>
+kube-system   pod/weave-net-dt5wl                      2/2     Running   0          4m28s   10.10.8.5   worker-node1   <none>           <none>
+kube-system   pod/weave-net-m4z79                      2/2     Running   1          4m25s   10.10.8.6   worker-node2   <none>           <none>
 ```
