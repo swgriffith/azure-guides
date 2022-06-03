@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: windebug
+  name: windebug
+spec:
+  containers:
+  - image: stevegriffith/windebug
+    name: windebug
+    command: ["powershell.exe", "-command"]
+    args: ["while($true){Start-Sleep -Seconds 30}"]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  nodeSelector:
+    kubernetes.io/hostname: aksnpwin000001
+
