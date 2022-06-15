@@ -10,6 +10,8 @@ metadata:
 data:
   ip-masq-agent: |-
     nonMasqueradeCIDRs:
-      - 10.100.0.0/16
+      - 10.0.0.0/24 # Node Subnet CIDR
+      - 10.0.1.0/24 # Pod Subnet CIDR
+      - 10.100.0.0/16 # Service CIDR
     masqLinkLocal: false
     resyncInterval: 60s
