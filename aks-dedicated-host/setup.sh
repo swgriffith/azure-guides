@@ -39,6 +39,8 @@ sleep 30
 az role assignment create --assignee $CLUSTER_CLIENT_ID --role "Contributor" --scope $RG_ID
 
 # Create the AKS cluster with autoscale enabled
+# Note: For demo purposes we'll set the scale down
+# delay and unneeded time to speed up autoscale down time
 az aks create -g $RG \
 -n $CLUSTER_NAME \
 --nodepool-name agentpool1 \
@@ -50,11 +52,29 @@ az aks create -g $RG \
 --assign-identity $CLUSTER_IDENT_ID \
 --enable-cluster-autoscaler \
 --min-count 1 \
---max-count 5
+--max-count 5 \
+--cluster-autoscaler-profile scale-down-delay-after-add=1m scale-down-unneeded-time=1m
+
+# Enable Deallocation based scale down on the nodepool
+az aks nodepool update -g $RG --cluster-name $CLUSTER_NAME -n agentpool1 --scale-down-mode Deallocate
 
 # Get the cluster credentials
 az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 # Deploy the workload to trigger autoscale
 kubectl apply -f deploy.yaml
+
+# Watch the cluster scale up to meet demand
+
+# Delete the workload
+kubectl delete -f deploy.yaml
+
+# Watch the cluster scale back down
+# Note: With deallocation mode you'll see the nodes go into 'NotReady' state, like below
+NAME                                      STATUS     ROLES   AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
+node/aks-agentpool1-14380728-vmss000000   Ready      agent   69m   v1.22.6   10.224.0.4    <none>        Ubuntu 18.04.6 LTS   5.4.0-1080-azure   containerd://1.5.11+azure-1
+node/aks-agentpool1-14380728-vmss000001   NotReady   agent   65m   v1.22.6   10.224.0.5    <none>        Ubuntu 18.04.6 LTS   5.4.0-1080-azure   containerd://1.5.11+azure-1
+node/aks-agentpool1-14380728-vmss000002   NotReady   agent   65m   v1.22.6   10.224.0.6    <none>        Ubuntu 18.04.6 LTS   5.4.0-1080-azure   containerd://1.5.11+azure-1
+node/aks-agentpool1-14380728-vmss000003   NotReady   agent   65m   v1.22.6   10.224.0.7    <none>        Ubuntu 18.04.6 LTS   5.4.0-1080-azure   containerd://1.5.11+azure-1
+node/aks-agentpool1-14380728-vmss000004   NotReady   agent   21m   v1.22.6   10.224.0.8    <none>        Ubuntu 18.04.6 LTS   5.4.0-1080-azure   containerd://1.5.11+azure-1
 
