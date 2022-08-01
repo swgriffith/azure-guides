@@ -34,4 +34,5 @@ spec:
   - port: 80
   selector:
     run: php-apache
+  type: LoadBalancer
 
