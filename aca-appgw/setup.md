@@ -1,6 +1,6 @@
 # Setting up ACA Private with Azure App Gateway
 
-The following walk through demonstrates how to set up Azure Container Apps in private mode and then how to front-end your privately exposed service with a public endpoint from Azure App Gateway with WAF enabled.
+The following walk through demonstrates how to set up Azure Container Apps in private mode and then how to front-end your privately exposed service with a public endpoint from Azure App Gateway with WAF enabled. At the end of th
 
 ## Setup
 
@@ -282,3 +282,14 @@ az vm create \
 --admin-username azureuser \
 --generate-ssh-keys
 ```
+
+
+# Final Thoughts
+
+Whether you're using Azure Container Apps or Azure Kuberenetes Service, the concept of [layer 7](https://en.wikipedia.org/wiki/OSI_model#Layer_7:_Application_layer) ingress is the same. It's just a matter of the setup steps and tools you decide to use. Traffic will arrive at the ingress point (public or private), it gets evaluated on various layer 7 factors (ex. path, hostname, header details, etc) and then a routing decision is made and the traffic is forwarded to the next hop, which may be another layer 7 controller.
+
+For Azure Container Apps (ACA), there is a built in Ingress Controller for the ACA environment. That ingress controller has a single public or private IP address and has a default domain for all apps within that environment, as you saw in the [private zone setup section above](#for-private-aca-set-up-the-private-dns-zone). When you create an app, that app will get it's own FQDN prefix for that default domain (i.e. app-name.environment-default-domain). The ACA environment's ingress controller will use that private apps FQDN to route traffic to the backend app. As such, you need to ensure that any traffic destined for an ACA app has the right hostname on the header, which is why we set the value in step #6 in the ['Setup the Azure App Gatway'](#setup-the-azure-app-gateway) section above.
+
+For Azure Kubernetes Service, you generally would either bring your own ingress controller, by installing one in the cluster (ex. Nginx or Traefik Ingress installed in cluster). If you then choose to use another layer 7 ingress in front of that to get things like integrated Web Application Firewall (WAF) functionality, you would end up with a setup very much like the one we did for ACA. Your in-cluster ingress will expose a single private IP and you'd use host or path based routing in your Kubernetes ingress definitions to target the backend application instance. On the Azure App Gatway, or other layer 7 solution, you'd direct all traffic to that in-cluster ingress private IP and then would ensure that the hostname is passed through, or re-written properly, or the path is set correclty, if using path based routing on the backend.
+
+In both cases, you need to consider end to end traffic encryption. Any layer 7 solution will provide a mechanism to set a custom domain, and provide a custom domain certificate for TLS. Traffic should then be re-encrypted to the backend via a certificate that is shared between the front-end ingress controller and the in-cluster/backend ingress controller.
