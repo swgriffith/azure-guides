@@ -177,8 +177,8 @@ Now that we have our Application Gateway, we'll link it to the Azure Container A
 
 5. In the backend pools configuration, set the backend pool target to the private IP address of your ACA environment, which is the value you should have stored in the ENVIRONMENT_STATIC_IP environment variable. Once entered, click 'Save'/
 
-> **Note:**
-> The private IP of the environment is static and is shared as the ingress for all applications you deploy to the environment. Traffic is routed to the specific app based on the port or host header of the inbound request, so you can share the common backend across multiple inbound configurations.
+    > **Note:**
+    > The private IP of the environment is static and is shared as the ingress for all applications you deploy to the environment. Traffic is routed to the specific app based on the port or host header of the inbound request, so you can share the common backend across multiple inbound configurations.
 
     ![set backend private ip](assets/setbackendprivateip.jpg)
 
