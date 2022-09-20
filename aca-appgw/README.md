@@ -84,7 +84,7 @@ az containerapp create \
 --resource-group $RESOURCE_GROUP \
 --environment $PRIV_CONTAINERAPPS_ENVIRONMENT \
 --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest \
---target-port 443 \
+--target-port 80 \
 --ingress 'external' \
 --query properties.configuration.ingress.fqdn
 
