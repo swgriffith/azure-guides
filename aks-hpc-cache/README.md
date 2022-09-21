@@ -115,3 +115,16 @@ az hpc-cache blob-storage-target add \
 --container-name "testdata" \
 --virtual-namespace-path "/testdata"
 ```
+
+### Deploy the Persistent Volume, Persistent Volumen Claim and Test Daemonset
+
+```bash
+# Create the persistent volume
+kubectl apply -f pv.yaml
+
+# Create the persistent volume claim
+kubectl apply -f pvc.yaml
+
+# Depoly a test daemonset
+kubectl apply -f test-ds.yaml
+```
