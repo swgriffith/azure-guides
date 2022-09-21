@@ -86,6 +86,24 @@ az storage container create \
 BLOB_ACCT_ID=$(az storage account show -g $RG -n $BLOB_ACCT_NAME -o tsv --query id)
 ```
 
+Find the 'HPC Cache Resource Provider' service principal and grant it 'Storage Account Contributor' and 'Storage Blob Data Contributor' access.
+
+> **Warning:**
+> Depending on when you registered the HPC Cache service provider, your name may vary. If you cant find 'HPC Cache Resource Provider', then try looking for 'StorageCache'as I have below.
+
+```bash
+# Get the App ID for the resource provider user
+HPC_RP_USER_ID=$(az ad sp list --display-name "StorageCache" -o tsv --query '[0].id')
+
+az role assignment create --assignee $HPC_RP_USER_ID \
+--role "Storage Account Contributor" \
+--scope $BLOB_ACCT_ID
+
+az role assignment create --assignee $HPC_RP_USER_ID \
+--role "Storage Blob Data Contributor" \
+--scope $BLOB_ACCT_ID
+```
+
 ### Create a storage target for HPC Cache
 
 ```bash
@@ -94,6 +112,6 @@ az hpc-cache blob-storage-target add \
 --cache-name $CACHE_NAME \
 --name "blob-target1" \
 --storage-account $BLOB_ACCT_ID \
---container-name "container1" \
---virtual-namespace-path "/blob1"
+--container-name "testdata" \
+--virtual-namespace-path "/testdata"
 ```
