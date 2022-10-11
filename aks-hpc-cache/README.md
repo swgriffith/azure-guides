@@ -120,11 +120,11 @@ az hpc-cache blob-storage-target add \
 
 ```bash
 # Create the persistent volume
-kubectl apply -f pv.yaml
+kubectl apply -f ./manifests/pv.yaml
 
 # Create the persistent volume claim
-kubectl apply -f pvc.yaml
+kubectl apply -f ./manifests/pvc.yaml
 
 # Depoly a test daemonset
-kubectl apply -f test-ds.yaml
+kubectl apply -f ./manifests/test-ds.yaml
 ```

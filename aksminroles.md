@@ -539,3 +539,5 @@ Try to create the cluster again. This time it should succeed and within a few mi
 # Create the cluster
 az aks create -g EphClusterRoleTest -n testcluster --service-principal <AppID from cluster-internal-sp file> --client-secret <Password from cluster-internal-sp file> --node-vm-size Standard_D2s_v3 --enable-addons monitoring --workspace-resource-id '<Insert your workspace ID from above>'
 ```
+
+
