@@ -868,7 +868,7 @@ SOURCE_CLUSTER_ID=<Insert the Source Cluster ID Here>
 
 # Deploy the backup
 helm install k10-restore kasten/k10restore --namespace=kasten-io \
-    --set sourceClusterID=fa099808-6f15-4f07-9490-05c13b1cc589 \
+    --set sourceClusterID=$SOURCE_CLUSTER_ID \
     --set profile.name=azure-backup-storage-location
 ```
 
