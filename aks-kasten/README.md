@@ -550,7 +550,7 @@ cat <<EOF | kubectl create -f -
 apiVersion: actions.kio.kasten.io/v1alpha1
 kind: BackupAction
 metadata:
-  generateName: backup-mysql-
+  generateName: backup-elasticsearch-
   namespace: elasticsearch
   labels:
     k10.kasten.io/appNamespace: "elasticsearch"
