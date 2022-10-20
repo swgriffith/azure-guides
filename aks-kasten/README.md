@@ -573,8 +573,7 @@ EOF
 
 Now you should have an operational instance of Kasten on your cluster and a backup policy and backup of your Elastic Search instance. If you were to wreck your data, you should now be able to restore from a restore point.
 
-
-
+https://user-images.githubusercontent.com/16705496/197001830-151d30db-44af-404b-b919-20046509e5ac.mp4
 
 ### Enable Kasten DR
 
