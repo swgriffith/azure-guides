@@ -325,6 +325,10 @@ curl -X PUT "$esip:9200/customer/_doc/1?pretty" -H 'Content-Type: application/js
     "name": "kubecon",
     "settings" : {"index" : {"number_of_shards" : 3, "number_of_replicas" : 1 }}}'
 
+curl -X PUT "$esip:9200/customer/_doc/2?pretty" -H 'Content-Type: application/json' -d'{
+    "name": "kasten",
+    "settings" : {"index" : {"number_of_shards" : 3, "number_of_replicas" : 1 }}}'
+
 # Validate the inserted doc 
 curl "$esip:9200/customer/_search?q=*&pretty"
 
@@ -368,6 +372,9 @@ curl -X GET "$esip:9200/_cat/indices?v"
 curl http://$esip:9200/_cat/shards/test\?pretty\=true
 ```
 
+At this point you have a working Elastic Search cluster, running on a zone redundant AKS cluster. If you insert several records, and then watch the shards on those records while you delete pods, you should see that AKS will restart those pods and reattach storage, and also that Elastic Search has ensured your data is sharded across nodes, so that application requests will continue to be served as long as an active shard exists.
+
+https://raw.githubusercontent.com/asyraffff/readme-with-video/main/README.md
 
 ## Install Kasten 
 
