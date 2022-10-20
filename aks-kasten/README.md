@@ -376,6 +376,8 @@ At this point you have a working Elastic Search cluster, running on a zone redun
 
 https://user-images.githubusercontent.com/16705496/196979113-b463e775-d016-49b9-baf7-12107e0e9d41.mp4
 
+Now lets work on application data recovery! We need to install Kasten!!!
+
 ## Install Kasten 
 
 ```bash
@@ -568,6 +570,11 @@ spec:
 EOF
 
 ```
+
+Now you should have an operational instance of Kasten on your cluster and a backup policy and backup of your Elastic Search instance. If you were to wreck your data, you should now be able to restore from a restore point.
+
+
+
 
 ### Enable Kasten DR
 
