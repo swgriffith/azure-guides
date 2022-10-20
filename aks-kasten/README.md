@@ -374,7 +374,7 @@ curl http://$esip:9200/_cat/shards/test\?pretty\=true
 
 At this point you have a working Elastic Search cluster, running on a zone redundant AKS cluster. If you insert several records, and then watch the shards on those records while you delete pods, you should see that AKS will restart those pods and reattach storage, and also that Elastic Search has ensured your data is sharded across nodes, so that application requests will continue to be served as long as an active shard exists.
 
-https://raw.githubusercontent.com/swgriffith/azure-guides/master/aks-kasten/content/elastic-recovery.mov
+https://raw.githubusercontent.com/swgriffith/azure-guides/master/aks-kasten/content/elastic-recovery.mp4
 
 ## Install Kasten 
 
