@@ -504,56 +504,8 @@ spec:
   type: Location
 EOF
 
-#TODO: Update the policy to enable export automatically
-# Create the backup policy
-# cat <<EOF | kubectl apply -f -
-# apiVersion: config.kio.kasten.io/v1alpha1
-# kind: Policy
-# metadata:
-#   name: elastic-search-backup
-#   namespace: kasten-io
-# spec:
-#   comment: Elastic Search Backup Policy
-#   frequency: '@daily'
-#   subFrequency:
-#     minutes: [30]
-#     hours: [22,7]
-#     weekdays: [5]
-#     days: [15]
-#   retention:
-#     daily: 14
-#     weekly: 4
-#     monthly: 6
-#   actions:
-#   - action: backup
-#     backupParameters:
-#       profile:
-#         name: azure-backup-storage-location
-#         namespace: kasten-io
-#   - action: export
-#     exportParameters:
-#     profile:
-#         name: azure-backup-storage-location
-#         namespace: kasten-io
-#     exportData:
-#       enabled: true
-#     frequency: '@hourly'
-#     retention:
-#       daily: 7
-#       hourly: 24
-#       monthly: 12
-#       weekly: 4
-#       yearly: 7
-#       volumeSnapshots:
-#           destinationAccount: sample-destination-account
-#         azure:
-#           regions:
-#             - $PRIMARY_LOCATION
-#   selector:
-#     matchLabels:
-#       k10.kasten.io/appNamespace: elasticsearch
-# EOF
 
+# Create the backup policy
 cat <<EOF | kubectl apply -f -
 kind: Policy
 apiVersion: config.kio.kasten.io/v1alpha1
