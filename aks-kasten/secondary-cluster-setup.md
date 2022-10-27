@@ -3,13 +3,13 @@
 Creating the second cluster is basically a repeat of the cluster creation steps above. In a real world scenario, you would just use a template to deploy and change the region target.
 
 ```bash
-LOCATION=westus2 # Location 
-AKS_NAME=aks-kasten
-RG=$AKS_NAME-$LOCATION
-AKS_VNET_NAME=$AKS_NAME-vnet # The VNET where AKS will reside
-AKS_CLUSTER_NAME=$AKS_NAME-$LOCATION-cluster # name of the cluster
+SECONDARY_LOCATION=westus2 # Location 
+SECONDARY_AKS_NAME=elastic-secondary
+SECONDARY_RG=$SECONDARY_AKS_NAME-$SECONDARY_LOCATION
+AKS_VNET_NAME=$SECONDARY_AKS_NAME-vnet # The VNET where AKS will reside
+SECONDARY_AKS_CLUSTER_NAME=$SECONDARY_AKS_NAME-cluster # name of the cluster
 AKS_VNET_CIDR=172.16.0.0/16 #VNET address space
-AKS_NODES_SUBNET_NAME=$AKS_NAME-subnet # the AKS nodes subnet name
+AKS_NODES_SUBNET_NAME=$SECONDARY_AKS_NAME-subnet # the AKS nodes subnet name
 AKS_NODES_SUBNET_PREFIX=172.16.0.0/23 # the AKS nodes subnet address space
 SERVICE_CIDR=10.0.0.0/16
 DNS_IP=10.0.0.10
@@ -29,69 +29,47 @@ IDENTITY_NAME=$AKS_NAME`date +"%d%m%y"` # cluster managed identity
 ### Create the resource group
 
 ```bash
-az group create --name $RG --location $LOCATION
+az group create --name $SECONDARY_RG --location $SECONDARY_LOCATION
 ```
-
-### Create the cluster identity
-
-<!-- ```bash
-az identity create --name $IDENTITY_NAME --resource-group $RG
-``` -->
-
-### Get the identity id and client id, we will use them later 
-
-<!-- ```bash
-IDENTITY_ID=$(az identity show --name $IDENTITY_NAME --resource-group $RG --query id -o tsv)
-IDENTITY_CLIENT_ID=$(az identity show --name $IDENTITY_NAME --resource-group $RG --query clientId -o tsv)
-``` -->
 
 ### Create the VNET and Subnet 
 
 ```bash
 az network vnet create \
   --name $AKS_VNET_NAME \
-  --resource-group $RG \
-  --location $LOCATION \
+  --resource-group $SECONDARY_RG \
+  --location $SECONDARY_LOCATION \
   --address-prefix $AKS_VNET_CIDR \
   --subnet-name $AKS_NODES_SUBNET_NAME \
   --subnet-prefix $AKS_NODES_SUBNET_PREFIX
-```
+  ```
 
 ### Get the RG, VNET and Subnet IDs
-
 ```bash
-RG_ID=$(az group show -n $RG  --query id -o tsv)
-VNETID=$(az network vnet show -g $RG --name $AKS_VNET_NAME --query id -o tsv)
-AKS_VNET_SUBNET_ID=$(az network vnet subnet show --name $AKS_NODES_SUBNET_NAME -g $RG --vnet-name $AKS_VNET_NAME --query "id" -o tsv)
+SECONDARY_RG_ID=$(az group show -n $SECONDARY_RG  --query id -o tsv)
+SECONDARY_VNETID=$(az network vnet show -g $SECONDARY_RG --name $AKS_VNET_NAME --query id -o tsv)
+SECONDARY_AKS_VNET_SUBNET_ID=$(az network vnet subnet show --name $AKS_NODES_SUBNET_NAME -g $SECONDARY_RG --vnet-name $AKS_VNET_NAME --query "id" -o tsv)
 ```
 
 ### Assign the managed identity permissions on the RG and VNET
 
-> *NOTE:* For the purposes of this demo we are setting the rights as highly unrestricted. You will want to set the rights below to meet your security needs. 
-
-We'll reuse the identity for the primary cluster
+> *NOTE:* For the purposes of this demo we are setting the rights as highly unrestricted. You will want to set the rights below to meet your security needs.
 
 ```bash
-az role assignment create --assignee $IDENTITY_CLIENT_ID --scope $RG_ID --role Contributor
-az role assignment create --assignee $IDENTITY_CLIENT_ID --scope $VNETID --role Contributor
+az role assignment create --assignee $IDENTITY_CLIENT_ID --scope $SECONDARY_RG_ID --role Contributor
+az role assignment create --assignee $IDENTITY_CLIENT_ID --scope $SECONDARY_VNETID --role Contributor
 
 # Validate Role Assignment
 az role assignment list --assignee $IDENTITY_CLIENT_ID --all -o table
 
------ Sample Output -----
-Principal                             Role         Scope
-------------------------------------  -----------  -------------------------------------------------------------------------------------------------------------------------------------------------------
-c068a2aa-02b2-40b1-ba2c-XXXXXXXXXXXX  Contributor  /subscriptions/SUBID/resourceGroups/aks-storage-westus2
-c068a2aa-02b2-40b1-ba2c-XXXXXXXXXXXX  Contributor  /subscriptions/SUBID/resourceGroups/aks-storage-westus2/providers/Microsoft.Network/virtualNetworks/aks-storage-vnet
 ```
 
 ### Create the cluster 
-
 ```bash
 az aks create \
--g $RG \
--n $AKS_CLUSTER_NAME \
--l $LOCATION \
+-g $SECONDARY_RG \
+-n $SECONDARY_AKS_CLUSTER_NAME \
+-l $SECONDARY_LOCATION \
 --node-count $SYSTEM_NODE_COUNT \
 --node-vm-size $NODES_SKU \
 --network-plugin $NETWORK_PLUGIN \
@@ -99,7 +77,7 @@ az aks create \
 --generate-ssh-keys \
 --service-cidr $SERVICE_CIDR \
 --dns-service-ip $DNS_IP \
---vnet-subnet-id $AKS_VNET_SUBNET_ID \
+--vnet-subnet-id $SECONDARY_AKS_VNET_SUBNET_ID \
 --enable-addons monitoring \
 --enable-managed-identity \
 --assign-identity $IDENTITY_ID \
@@ -108,10 +86,10 @@ az aks create \
 --zones 1 2 3 
 ```
 
-### get the credentials 
+### Get the credentials 
 
 ```bash
-az aks get-credentials -n $AKS_CLUSTER_NAME -g $RG
+az aks get-credentials -n $SECONDARY_AKS_CLUSTER_NAME -g $SECONDARY_RG
 
 # validate nodes are running and spread across AZs
 kubectl get nodes
@@ -133,11 +111,11 @@ kubectl describe nodes -l agentpool=systempool | grep -i topology.kubernetes.io/
 ```bash
 # First Node Pool in Zone 1
 az aks nodepool add \
---cluster-name $AKS_CLUSTER_NAME \
+--cluster-name $SECONDARY_AKS_CLUSTER_NAME \
 --mode User \
 --name $STORAGE_POOL_ZONE1_NAME \
 --node-vm-size $NODES_SKU \
---resource-group $RG \
+--resource-group $SECONDARY_RG \
 --zones 1 \
 --enable-cluster-autoscaler \
 --max-count 4 \
@@ -150,11 +128,11 @@ az aks nodepool add \
 
 # Second Node Pool in Zone 2
 az aks nodepool add \
---cluster-name $AKS_CLUSTER_NAME \
+--cluster-name $SECONDARY_AKS_CLUSTER_NAME \
 --mode User \
 --name $STORAGE_POOL_ZONE2_NAME \
 --node-vm-size $NODES_SKU \
---resource-group $RG \
+--resource-group $SECONDARY_RG \
 --zones 2 \
 --enable-cluster-autoscaler \
 --max-count 4 \
@@ -168,11 +146,11 @@ az aks nodepool add \
 
 # Third Node Pool in Zone 3
 az aks nodepool add \
---cluster-name $AKS_CLUSTER_NAME \
+--cluster-name $SECONDARY_AKS_CLUSTER_NAME \
 --mode User \
 --name $STORAGE_POOL_ZONE3_NAME \
 --node-vm-size $NODES_SKU \
---resource-group $RG \
+--resource-group $SECONDARY_RG \
 --zones 3 \
 --enable-cluster-autoscaler \
 --max-count 4 \
@@ -212,19 +190,11 @@ kubectl describe nodes -l dept=dev | grep -i topology.kubernetes.io/zone
 kubectl describe nodes -l dept=dev | grep -i agentpool
 ```
 
-### Setup Kasten for DR
+### Install Kasten
 
 ```bash
-# # Create a passphrase for Kasten recovery
-# KASTEN_PASS=<YourPassphraseHere>
-
 # Create the Kasten namespace
 kubectl create ns kasten-io
-
-# # Create the secret for the Kasten DR Passphrase
-# kubectl create secret generic k10-dr-secret \
-#    --namespace kasten-io \
-#    --from-literal key=$KASTEN_PASS
 
 # Create the volume snapshot class for Kasten
 cat <<EOF | kubectl apply -f -
@@ -254,19 +224,22 @@ helm install k10 kasten/k10 --namespace=kasten-io \
   --set externalGateway.create=true \
   --set metering.mode=airgap 
 
+# Watch the pods come online
+watch kubectl get pods -n kasten-io
+```
+
+### Create the storage account and location profile
+
+```bash
 # Define variables 
 DATE=$(date +%Y%m%d)
 PREFIX=kastendemo
-BACKUP_RG=kasten-backup-${LOCATION}
-STORAGE_ACCOUNT_NAME=${PREFIX}${LOCATION} 
-
-# Create resource group 
-az group create -n $BACKUP_RG -l $LOCATION
+SECONDARY_STORAGE_ACCOUNT_NAME=${PREFIX}${SECONDARY_LOCATION} 
 
 # reate storage account 
 az storage account create \
-    --name $STORAGE_ACCOUNT_NAME \
-    --resource-group $BACKUP_RG \
+    --name $SECONDARY_STORAGE_ACCOUNT_NAME \
+    --resource-group $SECONDARY_RG \
     --sku Standard_GRS \
     --encryption-services blob \
     --https-only true \
@@ -274,20 +247,20 @@ az storage account create \
     --access-tier Hot
 
 
-STORAGE_ACCOUNT_KEY=$(az storage account keys list -g $BACKUP_RG -n $STORAGE_ACCOUNT_NAME --query "[0].value" -o tsv)
+SECONDARY_STORAGE_ACCOUNT_KEY=$(az storage account keys list -g $SECONDARY_RG -n $SECONDARY_STORAGE_ACCOUNT_NAME --query "[0].value" -o tsv)
 
 # Create blob container 
 BLOB_CONTAINER=kasten
-az storage container create -n $BLOB_CONTAINER --public-access off --account-name $STORAGE_ACCOUNT_NAME
+az storage container create -n $BLOB_CONTAINER --public-access off --account-name $SECONDARY_STORAGE_ACCOUNT_NAME
 
 #create secret for storage account 
 AZURE_STORAGE_ENVIRONMENT=AzurePublicCloud
-AZURE_STORAGE_SECRET=k10-azure-blob-backup
+SECONDARY_AZURE_STORAGE_SECRET=k10-azure-blob-backup-secondary
 
-kubectl create secret generic $AZURE_STORAGE_SECRET \
+kubectl create secret generic $SECONDARY_AZURE_STORAGE_SECRET \
       --namespace kasten-io \
-      --from-literal=azure_storage_account_id=$STORAGE_ACCOUNT_NAME \
-      --from-literal=azure_storage_key=$STORAGE_ACCOUNT_KEY \
+      --from-literal=azure_storage_account_id=$SECONDARY_STORAGE_ACCOUNT_NAME \
+      --from-literal=azure_storage_key=$SECONDARY_STORAGE_ACCOUNT_KEY \
       --from-literal=azure_storage_environment=$AZURE_STORAGE_ENVIRONMENT
 
 
@@ -296,7 +269,7 @@ cat <<EOF | kubectl apply -f -
 kind: Profile
 apiVersion: config.kio.kasten.io/v1alpha1
 metadata:
-  name: azure-backup-storage-location
+  name: azure-backup-storage-secondary
   namespace: kasten-io
 spec:
   locationSpec:
@@ -304,111 +277,28 @@ spec:
     objectStore:
       name: kasten
       objectStoreType: AZ
-      region: $LOCATION
+      region: $SECONDARY_LOCATION
     credential:
       secretType: AzStorageAccount
       secret:
         apiVersion: v1
         kind: secret
-        name: $AZURE_STORAGE_SECRET
+        name: $SECONDARY_AZURE_STORAGE_SECRET
         namespace: kasten-io
   type: Location
 EOF
 ```
 
-<!-- In the [Enable Kasten DR](#enable-kasten-dr) section above, you retrieved the source cluster ID. You'll need that here.
+Now we need to add a location profile for the primary region.
 
 ```bash
-# Set the source cluster ID
-SOURCE_CLUSTER_ID=<Insert the Source Cluster ID Here>
-
-# Deploy the backup
-helm install k10-restore kasten/k10restore --namespace=kasten-io \
-    --set sourceClusterID=$SOURCE_CLUSTER_ID \
-    --set profile.name=azure-backup-storage-location
-``` -->
-
-### Go to the destination cluster portal to watch the Kasten DR restore
-
-```bash
-sa_secret=$(kubectl get serviceaccount k10-k10 -o jsonpath="{.secrets[0].name}" --namespace kasten-io)
-
-kubectl get secret $sa_secret --namespace kasten-io -ojsonpath="{.data.token}{'\n'}" | base64 --decode
-
-# Start a port-forward to access dashboard on localhost 
-kubectl --namespace kasten-io port-forward service/gateway 8080:8000
-```
-
-In your browser, navigate to [http://localhost:8080/k10/#/](http://localhost:8080/k10/#/). You may need an incognito window. Paste the bearer token you retrieved in the step above and click 'Sign In'. You'll need to fill in a few fields to complete the setup.
-
-<!-- ### Restore Elastic Search
-
-First you need to determine what restore point to recover from. You can access this from the portal, or list all available restore points with the following:
-
-```bash
-kubectl get --raw /apis/apps.kio.kasten.io/v1alpha1/restorepointcontents|jq '.items[].status'
-```
-
-```bash
-RESTORE_POINT_NAME=<InsertYourRestorePointName>
-
-cat <<EOF | kubectl create -f -
-apiVersion: actions.kio.kasten.io/v1alpha1
-kind: RestoreAction
-metadata:
-  generateName: restore-elasticsearch
-  namespace: elasticsearch
-spec:
-  subject:
-    kind: RestorePoint
-    name: $RESTORE_POINT_NAME
-    namespace: elasticsearch
-  targetNamespace: elasticsearch
-EOF
-```
-
-### Now lets validate our data was restored
-
-```bash
-#lets store the value of the "elasticsearch-v1" service IP so we can use it later
-esip_recovered=`kubectl get svc  elasticsearch-v1 -n elasticsearch -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'`
-
-# Look for the record we inserted in the other cluster
-curl "$esip_recovered:9200/customer/_search?q=*&pretty"
-``` -->
-
-
-k10multicluster setup-primary \
-    --context=aks-kasten-cluster  \
-    --name=primary
-
-k10multicluster bootstrap \
-    --primary-context=aks-kasten-cluster \
-    --primary-name=primary \
-    --secondary-context=aks-kasten-westus2-cluster \
-    --secondary-name=secondary \
-    --secondary-cluster-ingress='http://k10-secondary.stevegriffith.io/k10'
-
-
-
-
-
-### Set up the source storage profile
-
-```bash
-PRIMARY_RG=kasten-backup-eastus2
-PRIMARY_LOCATION=eastus2
-PRIMARY_SA_NAME=kastendemo20221024backup
-PRIMARY_STORAGE_ACCOUNT_KEY=$(az storage account keys list -g $PRIMARY_RG -n $PRIMARY_SA_NAME --query "[0].value" -o tsv)
-
-
 #create secret for storage account 
 AZURE_STORAGE_ENVIRONMENT=AzurePublicCloud
-AZURE_STORAGE_SECRET=k10-azure-primary-blob-backup
+AZURE_STORAGE_SECRET=k10-azure-blob-backup
 
 kubectl create secret generic $AZURE_STORAGE_SECRET \
       --namespace kasten-io \
-      --from-literal=azure_storage_account_id=$PRIMARY_SA_NAME \
+      --from-literal=azure_storage_account_id=$PRIMARY_STORAGE_ACCOUNT_NAME \
       --from-literal=azure_storage_key=$PRIMARY_STORAGE_ACCOUNT_KEY \
       --from-literal=azure_storage_environment=$AZURE_STORAGE_ENVIRONMENT
 
@@ -416,7 +306,7 @@ cat <<EOF | kubectl apply -f -
 kind: Profile
 apiVersion: config.kio.kasten.io/v1alpha1
 metadata:
-  name: azure-backup-primary-storage-location
+  name: azure-backup-storage-primary
   namespace: kasten-io
 spec:
   locationSpec:
@@ -434,65 +324,92 @@ spec:
         namespace: kasten-io
   type: Location
 EOF
+
 ```
 
-
-# Lets store the value of the "elasticsearch-v1" service IP so we can use it later
-esip_secondary=`kubectl get svc  elasticsearch-v1 -n elasticsearch -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'`
-```
-
-Lets validate our deployment and insert some data 
+Now lets get the token and portal URL and check out our secondary instance.
 
 ```bash
-# Get the version 
-curl -XGET "http://$esip_secondary:9200"
+sa_secret=$(kubectl get serviceaccount k10-k10 -o jsonpath="{.secrets[0].name}" --namespace kasten-io)
 
-# Sample Output
-{
-  "name" : "elasticsearch-v1-coordinating-1",
-  "cluster_name" : "elastic",
-  "cluster_uuid" : "kz5rkH_2T9W6u4sUPZE2oQ",
-  "version" : {
-    "number" : "8.2.0",
-    "build_flavor" : "default",
-    "build_type" : "tar",
-    "build_hash" : "b174af62e8dd9f4ac4d25875e9381ffe2b9282c5",
-    "build_date" : "2022-04-20T10:35:10.180408517Z",
-    "build_snapshot" : false,
-    "lucene_version" : "9.1.0",
-    "minimum_wire_compatibility_version" : "7.17.0",
-    "minimum_index_compatibility_version" : "7.0.0"
-  },
-  "tagline" : "You Know, for Search"
-}
+echo $(kubectl get secret $sa_secret --namespace kasten-io -ojsonpath="{.data.token}{'\n'}" | base64 --decode)
 
+# Take the token and navigate to the URL output from the command below to login to the Kasten dashboard
+kastenip=$(kubectl get svc gateway-ext -n kasten-io -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+echo "http://${kastenip}/k10/#/"
+```
 
-# Check the cluster health and check the shards 
-curl "http://$esip:9200/_cluster/health?pretty"
+It would be nice to see these cluster in Kasten multi-cluster view, so lets set that up. You'll need the k10multicluster cli which you can find here [https://docs.kasten.io/latest/multicluster/k10multicluster.html](https://docs.kasten.io/latest/multicluster/k10multicluster.html)
 
-# Sample Output
-{
-  "cluster_name" : "elastic",
-  "status" : "green",
-  "timed_out" : false,
-  "number_of_nodes" : 18,
-  "number_of_data_nodes" : 6,
-  "active_primary_shards" : 5,
-  "active_shards" : 10,
-  "relocating_shards" : 0,
-  "initializing_shards" : 0,
-  "unassigned_shards" : 0,
-  "delayed_unassigned_shards" : 0,
-  "number_of_pending_tasks" : 0,
-  "number_of_in_flight_fetch" : 0,
-  "task_max_waiting_in_queue_millis" : 0,
-  "active_shards_percent_as_number" : 100.0
-}
+```bash
+# Check the context names for your primary and secondary clusters
+kubectl config get-contexts
 
+# Set up the primary
+k10multicluster setup-primary \
+    --context=elastic-primary-cluster   \
+    --name=primary
 
-# Validate the inserted doc 
-curl "$esip_secondary:9200/customer/_search?q=*&pretty"
+# Set up the secondary
+k10multicluster bootstrap \
+    --primary-context=elastic-primary-cluster  \
+    --primary-name=primary \
+    --secondary-context=elastic-secondary-cluster \
+    --secondary-name=secondary \
+    --secondary-cluster-ingress="http://${kastenip}/k10"
+```
 
-curl -X PUT "elastic-primary:9200/customer/_doc/3?pretty" -H 'Content-Type: application/json' -d'{
-    "name": "demo",
-    "settings" : {"index" : {"number_of_shards" : 3, "number_of_replicas" : 1 }}}'
+If you navigate to your primary dashboard you should see the multi-cluster user experience.
+
+### Restore Elastic Search from the Primary export
+
+First we need to get the recieve string from the export in our primary cluster.
+
+```bash
+# Get the contexts
+kubectl config get-contexts
+
+# Use the primary context
+kubectl config use-context elastic-primary-cluster
+
+# Get the recieve string
+EXPORT_RECIEVE_STRING=$(kubectl get policy es-backup-export -n kasten-io -o jsonpath='{.spec.actions[?(@.action=="export")].exportParameters.receiveString}')
+
+# Switch context back to secondary
+kubectl config use-context elastic-secondary-cluster
+```
+
+Now create the import policy.
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: Policy
+metadata:
+  name: es-import-policy
+  namespace: kasten-io
+spec:
+  comment: Elastic Search import policy
+  frequency: '@hourly'
+  actions:
+  - action: import
+    importParameters:
+      profile:
+        namespace: kasten-io
+        name: azure-backup-storage-primary
+      receiveString: ${EXPORT_RECIEVE_STRING}
+EOF
+
+# Execute the import manually
+cat <<EOF | kubectl create -f -
+apiVersion: actions.kio.kasten.io/v1alpha1
+kind: RunAction
+metadata:
+  generateName: run-es-backup-import-
+spec:
+  subject:
+    kind: Policy
+    name: es-import-policy
+    namespace: kasten-io
+EOF
+```
