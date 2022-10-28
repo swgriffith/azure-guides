@@ -478,7 +478,7 @@ kubectl create secret generic $AZURE_STORAGE_SECRET \
       --from-literal=azure_storage_environment=$AZURE_STORAGE_ENVIRONMENT
 ```
 
-Now create your backup profile and policy. You can adjust the backup policy to match your preferred backup time, but also for demo purposes I've provided a [BackupAction](https://docs.kasten.io/latest/api/actions.html#backupaction) example to trigger a manual backup.
+Now create your backup profile and policy. You can adjust the backup policy to match your preferred backup time, but also for demo purposes I've provided a [Run Action](https://docs.kasten.io/latest/api/actions.html#runaction) example to trigger a manual backup.
 
 ```bash
 cat <<EOF | kubectl apply -f -
