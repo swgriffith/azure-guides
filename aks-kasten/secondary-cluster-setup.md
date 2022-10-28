@@ -365,6 +365,16 @@ If you navigate to your primary dashboard you should see the multi-cluster user 
 
 First we need to get the recieve string from the export in our primary cluster.
 
+> *Note:*
+> Due to an issue I havent yet worked out with restoring to tainted nodes, I had to run the following. I'd love a PR from someone that knows the solution to this issue.
+
+```bash
+# Remove the nodepool taints
+az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz1 --node-taints ""
+az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz2 --node-taints ""
+az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz3 --node-taints ""
+```
+
 ```bash
 # Get the contexts
 kubectl config get-contexts
@@ -398,6 +408,9 @@ spec:
         namespace: kasten-io
         name: azure-backup-storage-primary
       receiveString: ${EXPORT_RECIEVE_STRING}
+  - action: restore
+    restoreParameters:
+      restoreClusterResources: true
 EOF
 
 # Execute the import manually
@@ -413,3 +426,22 @@ spec:
     namespace: kasten-io
 EOF
 ```
+
+At this point the Elastic Search resources and data should be restored from the primary cluster to the secondary cluster. Let's test to verify.
+
+```bash
+# Lets store the value of the "elasticsearch-v1" service IP so we can use it later
+secondary_esip=`kubectl get svc  elasticsearch-v1 -n elasticsearch -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'`
+
+# Get the version 
+curl -XGET "http://$secondary_esip:9200"
+
+# Validate the inserted doc 
+curl "$secondary_esip:9200/customer/_search?q=*&pretty"
+
+# Check the index shards
+curl http://$secondary_esip:9200/_cat/shards/customer\?pretty\=true
+
+```
+
+You should now have a fully configured multi-region restorable Elastic Search environment. Congrats! Please feel free to reach out if you have any issues!
