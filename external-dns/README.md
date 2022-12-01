@@ -121,7 +121,8 @@ helm install external-dns bitnami/external-dns \
 --set "azure.useManagedIdentityExtension=true" \
 --set "logLevel=debug" \
 --set "domainFilters={$AZURE_DNS_ZONE}" \
---set "txtOwnerId=external-dns"
+--set "txtOwnerId=external-dns" \
+--set "sources={ingress,service,pod}"
 ```
 
 ### Test External DNS
@@ -141,9 +142,12 @@ spec:
       app: nginx
   template:
     metadata:
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: pod.griffdemo123.com
       labels:
         app: nginx
     spec:
+      hostNetwork: true
       containers:
       - image: nginx
         name: nginx
@@ -188,3 +192,64 @@ Name    ResourceGroup       Ttl    Type    AutoRegistered    Metadata
 ------  ------------------  -----  ------  ----------------  ----------
 hello   ephexternaldnsdemo  300    A       False
 ```
+
+### Create a Record for a Pod IP
+
+If you need to create a DNS record for a pod IP, you can do this by creating a headless service that is annotated for external-dns. External DNS will see the service and then go and retrieve the pod IP, as documented in this PR: 
+[for headless services use podip instead of hostip #498](https://github.com/kubernetes-sigs/external-dns/pull/498)
+
+```bash
+# Test ExternalDNS
+cat << EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: pod.griffdemo123.com
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  clusterIP: None
+EOF
+```
+
+Check the record was created via CLI, or you can use the portal
+
+```bash
+# Get the pod IP from kubernetes
+kubectl get pod -l app=nginx -o jsonpath='{.items[0].status.podIP}'
+
+# Sample Output
+10.244.2.14
+
+# Get the IP from the Azure Private Zone
+az network private-dns record-set a list -g $RG -z $AZURE_DNS_ZONE -o yaml --query "[?fqdn == 'pod.$AZURE_DNS_ZONE.'].aRecords"
+
+# Sample Output
+- - ipv4Address: 10.244.2.14
+```
+
