@@ -94,7 +94,6 @@ Now SSH back to the master node to edit the kube-apiserver static manifest.
 nano /etc/kubernetes/manifests/kube-apiserver.yaml 
 
 # Set the service-account-issuer value to the first URL
-# Add the service-account-jwks-uri value and set it to the second URL
 # The service-account settings should look like the following given the URLs above:
 
     - --service-account-issuer=https://oidcissuer4e2fd2e1.blob.core.windows.net/oidc-test/
