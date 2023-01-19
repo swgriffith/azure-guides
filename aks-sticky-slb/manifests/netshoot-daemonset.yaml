@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: netshoot
+  namespace: default
+  labels:
+    app: netshoot
+spec:
+  selector:
+    matchLabels:
+      name: netshoot
+  template:
+    metadata:
+      labels:
+        name: netshoot
+    spec:
+      hostNetwork: true
+      containers:
+      - name: netshoot
+        image: nicolaka/netshoot
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "while true; do sleep 30; done;" ]
+        securityContext:
+          privileged: true        
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi

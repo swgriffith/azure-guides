@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echoserver-svc
+#  annotations:
+#    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+#    service.beta.kubernetes.io/azure-disable-load-balancer-floating-ip: "true"
+spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 86400
+  internalTrafficPolicy: Cluster
+  externalTrafficPolicy: Local
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    run: echoserver
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: echoserver
+  name: echoserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: echoserver
+  template:
+    metadata:
+      labels:
+        run: echoserver
+    spec:
+      containers:
+      - image: cilium/echoserver
+        name: echoserver
+        env:
+        - name: PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
