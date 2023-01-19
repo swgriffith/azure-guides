@@ -75,4 +75,27 @@ kubectl scale deploy echoserver --replicas=3
 
 ## What to watch
 
-What you'll see as you run the scale up and down commands, is that the hostname return will be static 
+### Initial deployment and scale up
+What you'll see, after the initial deployment, is that the traffic from your client will hit one pod on one node and then it will stay with that pod/node for all subsequent requests. When you scale up, you'll see the traffic will continue to remain with the same pod/node, further demonstrating the stickiness of the traffic. 
+
+In the below image we just deployed the app with two instances and are sending our initial requests. The traffic is sticky to the pod named 'echoserver-59bf4556cd-xdws6' which is on node 0 (aks-nodepool1-19369881-vmss000000).
+
+![initial deploy](static/initialdeploy.jpg)
+
+In the below, we've run the scale up operation and now we have 3 pods across the three nodes. However, as you can see, the traffic has remained with the same pod (echoserver-59bf4556cd-xdws6).
+
+![after initial scale up](static/afterinitialscaleup.jpg)
+
+### Scale down
+Once you scale down, assuming the pod you're currently reaching is part of the scale down termination, you'll see the client traffic transition for to a new pod (i.e. the hostname value in the response message will change as the pod changes). This makes sense because the pod you were hitting was part of the scale down and was terminated, so the traffic needs to flow to a new pod, which may or may not be on a different node.
+
+In the below, you can see that, after scaling down to 1 pod, the pod we were actively reaching was terminated and the only remaining pod is echoserver-59bf4556cd-tpqxp on node 1 (aks-nodepool1-19369881-vmss000001). 
+
+![after scale down](static/afterscaledown.jpg)
+
+### Scale back up
+When you scale back up, with ClientIP as the session affinity, you'd expect that the traffic would remain with the pod/node you're client is currently hitting. What you will actually see, as a new pod comes online on the node your client initially was hitting at the begining of the test, is that the client traffic will be transitioned back to the original target node and the pod on that node. From that point forward you will once again be sticky to that node...at least until the next scale operation.
+
+In the below, after we've scaled back up to 3 pods, you can see that the traffic has transitioned back to the pod on node 0, which happens to be pod echoserver-59bf4556cd-5hkfj.
+
+![after scale back up](static/afterscalebackup.jpg)
