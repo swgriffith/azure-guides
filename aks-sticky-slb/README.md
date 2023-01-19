@@ -99,3 +99,7 @@ When you scale back up, with ClientIP as the session affinity, you'd expect that
 In the below, after we've scaled back up to 3 pods, you can see that the traffic has transitioned back to the pod on node 0, which happens to be pod echoserver-59bf4556cd-5hkfj.
 
 ![after scale back up](static/afterscalebackup.jpg)
+
+### Video 
+You can see a video of this demo here:
+[demo](https://griffcontent.blob.core.windows.net/public/stickyscaledemo.mp4)
