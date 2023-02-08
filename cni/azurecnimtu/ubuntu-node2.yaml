@@ -7,7 +7,7 @@ metadata:
   name: ubuntu2
 spec:
   nodeSelector:
-    kubernetes.io/hostname: "aks-nodepool1-20425424-vmss000001"
+    kubernetes.io/hostname: "aks-nodepool1-37855745-vmss000002"
   containers:
   - image: ubuntu
     name: ubuntu
