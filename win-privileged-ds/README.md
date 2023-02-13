@@ -74,7 +74,7 @@ Now here's the fun part. We need this pod to run with privileged access on the h
 
 ```yaml
 securityContext:
-windowsOptions:
+  windowsOptions:
     hostProcess: true
     runAsUserName: "NT AUTHORITY\\system"
 ```
