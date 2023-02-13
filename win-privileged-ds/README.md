@@ -215,7 +215,7 @@ Open an SSH or RDP session to your Windows host and run the following:
 while(1){Get-Service -Name W32TIme;sleep 5}
 ```
 
-You should see output like the followingL
+You should see output like the following, which shows that at the host level your pod is impacting the status of the W32Time service.
 
 ```powershell
 Status   Name               DisplayName
