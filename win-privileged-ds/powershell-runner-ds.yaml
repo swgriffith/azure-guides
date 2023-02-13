@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: powershell-runner
+  name: powershell-runner
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: powershell-runner
+  template:
+    metadata:
+      labels:
+        app: powershell-runner
+    spec:
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\system"
+      hostNetwork: true
+      containers:
+        - name: powershell-runner
+          image: mcr.microsoft.com/windows/nanoserver:1809
+          imagePullPolicy: Always
+          command: ["powershell.exe", "-command"]
+          args: ["./script/stopservice.ps1"]
+          volumeMounts:
+          - name: script
+            mountPath: "/script"          
+      nodeSelector:
+        kubernetes.io/os: windows
+      volumes:
+        - name: script
+          configMap:
+            name: powershell-script
+            defaultMode: 0555        
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: powershell-script
+  namespace: default
+data:
+  stopservice.ps1: |
+    Get-Service -Name W32TIme
+    Stop-Service -Name W32Time
+    Get-Service -Name W32TIme
+    Start-Sleep -Seconds 20
+    Start-Service -n W32Time
+    Get-Service -Name W32TIme
+    Start-Sleep -Seconds 20
