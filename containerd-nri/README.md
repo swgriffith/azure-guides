@@ -8,7 +8,7 @@ The following walks you through the creation of an AKS cluster, manual installat
 
 ### Create the cluster
 ```bash
-RG=EphContainerD2
+RG=EphContainerD
 LOC=eastus
 CLUSTER_NAME=containerd-test
 
