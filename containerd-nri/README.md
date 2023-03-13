@@ -1,4 +1,4 @@
-# Containerd Upgade Daemonset
+# Containerd NRI Setup
 
 The following walks you through the creation of an AKS cluster, manual installation of containerd 1.7, which supports NRI. Then it enables NRI, builds the sample NRI hook examples and sets up the OCI hook-injector.
 
