@@ -10,8 +10,8 @@ spec:
   sessionAffinityConfig:
     clientIP:
       timeoutSeconds: 86400
-  internalTrafficPolicy: Cluster
-  externalTrafficPolicy: Local
+  #internalTrafficPolicy: Cluster
+  externalTrafficPolicy: Cluster
   ports:
   - port: 8080
     protocol: TCP

@@ -19,7 +19,7 @@ spec:
       - name: netshoot
         image: nicolaka/netshoot
         command: [ "/bin/bash", "-c", "--" ]
-        args: [ "while true; do sleep 30; done;" ]
+        args: [ "tshark -i eth0 -f 'port 8080' -Y 'http contains \"YO\"' -T fields -e frame.time -e ip.src -e tcp.srcport -e ip.dst -e tcp.dstport -e ip.proto" ]
         securityContext:
           privileged: true        
         resources:

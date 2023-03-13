@@ -87,7 +87,7 @@ In the below, we've run the scale up operation and now we have 3 pods across the
 ![after initial scale up](static/afterinitialscaleup.jpg)
 
 ### Scale down
-Once you scale down, assuming the pod you're currently reaching is part of the scale down termination, you'll see the client traffic transition for to a new pod (i.e. the hostname value in the response message will change as the pod changes). This makes sense because the pod you were hitting was part of the scale down and was terminated, so the traffic needs to flow to a new pod, which may or may not be on a different node.
+Once you scale down, assuming the pod you're currently reaching is part of the scale down termination, you'll see the client traffic transition to a new pod (i.e. the hostname value in the response message will change as the pod changes). This makes sense because the pod you were hitting was part of the scale down and was terminated, so the traffic needs to flow to a new pod, which may or may not be on a different node.
 
 In the below, you can see that, after scaling down to 1 pod, the pod we were actively reaching was terminated and the only remaining pod is echoserver-59bf4556cd-tpqxp on node 1 (aks-nodepool1-19369881-vmss000001). 
 

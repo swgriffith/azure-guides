@@ -8,20 +8,21 @@ The following walks you through the creation of an AKS cluster, manual installat
 
 ### Create the cluster
 ```bash
-RG=EphContainerD
+RG=EphContainerD2
 LOC=eastus
 CLUSTER_NAME=containerd-test
 
 az group create -g $RG -l $LOC
 
-VNET_SUBNET_ID=/subscriptions/286322da-1300-4ce9-a39b-a4b7080f0a94/resourceGroups/networkinfra/providers/Microsoft.Network/virtualNetworks/azure-eastus-vnet/subnets/containerdtest
+# Optional
+VNET_SUBNET_ID=<Fully Qualified Subnet Resource ID>
 
 az aks create -g $RG -n $CLUSTER_NAME --vnet-subnet-id $VNET_SUBNET_ID -c 1
 
 az aks get-credentials -g $RG -n $CLUSTER_NAME --admin
 ```
 
-### Single node test
+### Single node containerd upgrade
 
 ```bash
 # SSH to the target node
@@ -128,6 +129,9 @@ sudo mkdir -p /opt/nri/plugins
 
 # Create the symlink to the hook-injector binary
 sudo ln -s /home/azureuser/nri/build/bin/hook-injector /opt/nri/plugins/10-hook-injector
+
+# Restart containerd 
+sudo systemctl restart containerd
 ```
 
 
