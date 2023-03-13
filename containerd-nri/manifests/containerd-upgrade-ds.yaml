@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: update-containerd
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: update-containerd
+  template:
+    metadata:
+      labels:
+        name: update-containerd
+    spec:
+      containers:
+      - name: update-containerd
+        image: mcr.microsoft.com/cbl-mariner/base/core:1.0
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "cp /script/* /host/tmp;chroot /host /bin/bash -c crontab /tmp/cronentry.txt;sleep infinity" ]
+        # args: [ "cp /script/* /host/tmp;chroot /host /bin/bash -c crontab /tmp/cronentry.txt/;sleep infinity" ]
+        volumeMounts:
+          - name: script
+            mountPath: "/script"
+          - mountPath: /host
+            name: host      
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 16Mi
+        securityContext:
+          privileged: true
+          runAsUser: 0
+      volumes:
+        - name: script
+          configMap:
+            name: containerd-upgrade
+            defaultMode: 0555
+        - name: host
+          hostPath:
+            path: /
+            type: Directory
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      terminationGracePeriodSeconds: 0
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: containerd-upgrade
+  namespace: kube-system
+data:
+  upgrade.sh: |
+    #!/bin/bash
+    wget --no-check-certificate https://github.com/containerd/containerd/releases/download/v1.7.0-rc.3/containerd-1.7.0-rc.3-linux-amd64.tar.gz
+    tar xvf containerd-1.7.0-rc.3-linux-amd64.tar.gz
+    sudo systemctl stop containerd
+    sudo cp bin/containerd* /usr/bin
+    sudo systemctl start containerd
+  cronentry.txt: |
+    SHELL=/bin/bash
+    @reboot /bin/bash -c /tmp/upgrade.sh > /tmp/containerdupgrade.log 2>&1
