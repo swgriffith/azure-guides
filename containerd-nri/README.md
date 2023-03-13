@@ -156,22 +156,3 @@ environment:
     SHLVL=1
     _=/usr/bin/env
 ```
-
-- Created a symlink to the hook-injector binary at /opt/nri/plugins with the name 10-hook-injector
-- Added the OCI hook config, using the sample below, at default OCI hook directory: /usr/share/containers/oci/hooks.d
-```json
-{
-    "version": "1.0.0",
-    "hook": {
-        "path": "/usr/local/sbin/demo-hook.sh",
-        "args": ["this", "hook", "is", "always", "injected"],
-        "env": [
-            "DEMO_HOOK_ALWAYS_INJECTED=true"
-        ]
-    },
-    "when": {
-        "always": true
-    },
-    "stages": ["prestart", "poststop"]
-}
-```
