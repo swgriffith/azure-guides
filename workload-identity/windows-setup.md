@@ -172,6 +172,8 @@ class Program
 
 Create a new Dockerfile with the following:
 
+>*NOTE:* Make sure the dotnet version matches the version you used to generate the code (i.e. 6.0 or 7.0) in both FROM lines below.
+
 ```bash
 FROM mcr.microsoft.com/dotnet/sdk:7.0-windowsservercore-ltsc2019 AS build-env
 WORKDIR /App
@@ -226,9 +228,7 @@ spec:
       - name: SECRET_NAME
         value: Secret
       - name: VERSION_ID
-        value: ${VERSION_ID}       
-  nodeSelector:
-    kubernetes.io/os: linux
+        value: ${VERSION_ID}
 EOF
 
 # Check the pod logs
