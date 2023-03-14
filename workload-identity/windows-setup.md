@@ -215,7 +215,7 @@ metadata:
   namespace: default
 spec:
   nodeSelector:
-    "kubernetes.io/os": windows
+    agentpool: npwin
   serviceAccountName: wi-demo-sa
   containers:
     - image: wikvdemo.azurecr.io/wi-kv-test
