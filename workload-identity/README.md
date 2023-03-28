@@ -210,11 +210,11 @@ metadata:
 spec:
   serviceAccountName: wi-demo-sa
   containers:
-    - image: wikvdemo.azurecr.io/wi-kv-test
+    - image: ${ACR_NAME}.azurecr.io/wi-kv-test
       name: wi-kv-test
       env:
       - name: KEY_VAULT_NAME
-        value: wi-demo-keyvault
+        value: ${KEY_VAULT_NAME}
       - name: SECRET_NAME
         value: Secret
       - name: VERSION_ID
