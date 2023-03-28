@@ -28,7 +28,10 @@ Now lets create the AKS cluster with the OIDC Issure and Workload Identity add-o
 ```bash
 RG=WorkloadIdentityRG
 LOC=eastus
-CLUSTER_NAME=wi-lab
+CLUSTER_NAME=wilab
+UNIQUE_ID=$CLUSTER_NAME$RANDOM
+ACR_NAME=$UNIQUE_ID
+KEY_VAULT_NAME=$UNIQUE_ID
 
 # Create the resource group
 az group create -g $RG -l $LOC
@@ -84,16 +87,16 @@ az identity federated-credential create \
 
 ```bash
 # Create a key vault
-az keyvault create --name wi-demo-keyvault --resource-group $RG --location $LOC
+az keyvault create --name $KEY_VAULT_NAME --resource-group $RG --location $LOC
 
 # Create a secret
-az keyvault secret set --vault-name wi-demo-keyvault --name "Secret" --value "Hello"
+az keyvault secret set --vault-name $KEY_VAULT_NAME --name "Secret" --value "Hello"
 
 # Grant access to the secret for the managed identity
-az keyvault set-policy --name wi-demo-keyvault --secret-permissions get --spn "${USER_ASSIGNED_CLIENT_ID}"
+az keyvault set-policy --name $KEY_VAULT_NAME --secret-permissions get --spn "${USER_ASSIGNED_CLIENT_ID}"
 
 # Get the version ID
-az keyvault secret show --vault-name wi-demo-keyvault --name "Secret" -o tsv --query id
+az keyvault secret show --vault-name $KEY_VAULT_NAME --name "Secret" -o tsv --query id
 https://wi-demo-keyvault.vault.azure.net/secrets/Secret/ded8e5e3b3e040e9bfa5c47d0e28848a
 
 # The version ID is the last part of the resource id above
@@ -183,13 +186,13 @@ Build the image. I'll create an Azure Container Registry and build there, and th
 
 ```bash
 # Create the ACR
-az acr create -g $RG -n wikvdemo --sku Standard
+az acr create -g $RG -n $ACR_NAME --sku Standard
 
 # Build the image
-az acr build -t wi-kv-test -r wikvdemo .
+az acr build -t wi-kv-test -r $ACR_NAME .
 
 # Link the ACR to the AKS cluster
-az aks update -g $RG -n $CLUSTER_NAME --attach-acr wikvdemo
+az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME
 ```
 
 Now deploy a pod that gets the value using the service account identity.
@@ -202,6 +205,8 @@ kind: Pod
 metadata:
   name: wi-kv-test
   namespace: default
+  labels:
+    azure.workload.identity/use: "true"  
 spec:
   serviceAccountName: wi-demo-sa
   containers:
