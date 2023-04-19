@@ -52,6 +52,15 @@ az aks create -g $RG -n $CLUSTER_NAME \
 --enable-addons virtual-node \
 --aci-subnet-name virtualnodes
 
+# Get the node resource group
+AKS_NODE_RG=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query nodeResourceGroup)
+AKS_NODE_RG_ID=$(az group show -n $AKS_NODE_RG -o tsv --query id)
+
+az role assignment create \
+--assignee $CLUSTER_IDENT_PRINCIPAL_ID \
+--role "Contributor" \
+--scope $AKS_NODE_RG_ID
+
 # Get the cluster credentials
 az aks get-credentials -g $RG -n $CLUSTER_NAME
 
