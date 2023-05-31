@@ -59,7 +59,6 @@ Create the deployment yaml. Create a new file called testfunc.yaml with the foll
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   labels:
     app: testfunc
   name: testfunc
@@ -78,7 +77,8 @@ spec:
           type: RuntimeDefault
         runAsUser: 1000
         runAsGroup: 3000
-        fsGroup: 2000          
+        fsGroup: 2000
+        supplementalGroups: [4000]
       containers:
       - image: griffdemo.azurecr.io/testfunc:latest
         name: testfunc
@@ -89,6 +89,7 @@ spec:
         - containerPort: 8000
         securityContext:
           allowPrivilegeEscalation: false
+          runAsNonRoot: true
 ---
 apiVersion: v1
 kind: Service
