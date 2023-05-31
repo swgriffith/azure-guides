@@ -6,10 +6,10 @@ metadata:
 #    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 #    service.beta.kubernetes.io/azure-disable-load-balancer-floating-ip: "true"
 spec:
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 86400
+  # sessionAffinity: ClientIP
+  # sessionAffinityConfig:
+  #   clientIP:
+  #     timeoutSeconds: 86400
   #internalTrafficPolicy: Cluster
   externalTrafficPolicy: Cluster
   ports:

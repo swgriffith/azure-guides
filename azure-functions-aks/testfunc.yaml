@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: testfunc
+  name: testfunc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testfunc
+  template:
+    metadata:
+      labels:
+        app: testfunc
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000          
+      containers:
+      - image: griffdemo.azurecr.io/testfunc:latest
+        name: testfunc
+        env:
+          - name: ASPNETCORE_URLS
+            value: http://*:8000
+        ports:
+        - containerPort: 8000
+        securityContext:
+          allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testfunc-svc
+  labels:
+    run: testfunc-svc
+spec:
+  ports:
+  - port: 8000
+    protocol: TCP
+  selector:
+    app: testfunc  
+  type: LoadBalancer
