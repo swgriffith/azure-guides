@@ -27,11 +27,22 @@ spec:
         env:
           - name: ASPNETCORE_URLS
             value: http://*:8000
+          - name: COMPlus_EnableDiagnostics
+            value: '0'
+          - name: FUNCTIONS_LOG_PATH
+            value: /tmp1            
         ports:
         - containerPort: 8000
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp1
+          name: tmpvol
+      volumes:
+      - emptyDir: {}
+        name: tmpvol
 ---
 apiVersion: v1
 kind: Service
