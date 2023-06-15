@@ -10,7 +10,7 @@ First, lets create the resource group and Vnet. The Vnet will have two subnets. 
 
 ```bash
 # Set the Resource Group Name and Region Environment Variables
-RG=ACAEgressLockdown2
+RG=ACAEgressLockdown
 LOC=eastus
 
 # Create Resource Group
@@ -46,7 +46,7 @@ PRIV_ACA_ENV_SUBNET_ID=$(az network vnet subnet show -g $RG --vnet-name $VNET_NA
 
 ### Create the Firewall and Route Table
 
-Now lets create the Azure Firewall and the rules required for ACA Egress.
+Now lets create the Azure Firewall and the rules required for ACA Egress. After the firewall is created we need to create the route table that will ensure internet traffic is sent to the firewall and attach that route table to the ACA subnet.
 
 ```bash
 # Create Azure Firewall Public IP
