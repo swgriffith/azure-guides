@@ -188,3 +188,45 @@ curl icanhazip.com
 
 # The ip returned should match the firewall egress ip above
 ```
+
+## Additional Optional Firewall Rules
+
+For the purposes of the test above, we only used docker hub and the Microsoft Container Registry. In real world scenarios there are some additional firewall rules you'll want to add.
+
+### Azure Container Registry
+
+```bash
+# First get your Azure Container Registry Address
+# Update the example.azurecr.io address below to match your ACR FQDN
+TARGET_FQDNS=('example.azurecr.io' \
+'*.blob.windows.net')
+
+az network firewall application-rule create \
+-g $RG \
+-f $FIREWALLNAME \
+--collection-name 'acr' \
+-n 'acr' \
+--source-addresses '*' \
+--protocols 'http=80' 'https=443' \
+--target-fqdns $TARGET_FQDNS \
+--action allow --priority 300
+```
+
+### Azure Key Vault
+
+```bash
+# First get your Azure Key Vault Address
+# Update the example.azurecr.io address below to match your ACR FQDN
+TARGET_FQDNS=('example.vault.azure.net' \
+'login.microsoft.com')
+
+az network firewall application-rule create \
+-g $RG \
+-f $FIREWALLNAME \
+--collection-name 'akv' \
+-n 'akv' \
+--source-addresses '*' \
+--protocols 'http=80' 'https=443' \
+--target-fqdns $TARGET_FQDNS \
+--action allow --priority 301
+```
