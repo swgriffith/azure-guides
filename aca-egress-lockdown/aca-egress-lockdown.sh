@@ -58,7 +58,7 @@ echo Add the Azure Firewall CLI extension.
 az extension add -n azure-firewall
 
 echo Create the public IP to be used with the Azure Firewall.
-az network public-ip create -g $RG -n azfirewall-ip --sku "Standard"
+az network public-ip create -g $RG -n pip-azfirewall --sku "Standard"
 
 echo Create the Azure Firewall.
 az network firewall create -g $RG -n $FIREWALLNAME --enable-dns-proxy true
@@ -134,13 +134,13 @@ FWPRIVATE_IP=$(az network firewall show -g $RG -n $FIREWALLNAME --query "ipConfi
 echo Create Route Table.
 az network route-table create \
 -g $RG \
--n acadefaultroutes
+-n udr-aca
 
 echo Create Default Routes.
 az network route-table route create \
 -g $RG \
 -n firewall-route \
---route-table-name acadefaultroutes \
+--route-table-name udr-aca \
 --address-prefix 0.0.0.0/0 \
 --next-hop-type VirtualAppliance \
 --next-hop-ip-address "$FWPRIVATE_IP"
@@ -148,7 +148,7 @@ az network route-table route create \
 az network route-table route create \
 -g $RG \
 -n internet-route \
---route-table-name acadefaultroutes \
+--route-table-name udr-aca \
 --address-prefix $FWPUBLIC_IP/32 \
 --next-hop-type Internet
 
@@ -157,7 +157,7 @@ az network vnet subnet update \
 -g $RG \
 -n aca \
 --vnet-name $VNET_NAME \
---route-table acadefaultroutes
+--route-table udr-aca
 
 # 4) Container App Environment & Container App"
 echo "----------------------------------------------------------------------------------------------------"
