@@ -3,11 +3,12 @@
 
 # Set variables
 # TODO: This is the only configuration you need to make in this script. Naming is based on Cloud Adoption Framework naming standards.
-RG=rg-aca-egress-lockdown3                      # name of the resource group to contain all assets
+RG=rg-aca-egress-lockdown                       # name of the resource group to contain all assets
 LOC=eastus                                      # location of assets
 FIREWALLNAME=afw-azure-egress                   # name of the Azure Firewall
 VNET_NAME=vnet-aca                              # name of the Azure virtual network
 CONTAINER_APP_ENVIRONMENT=acae-egress-lockdown  # name of the Azure Container App Environment
+CONTAINER_APP=aca-egresstest                    # name of the Azure Container App from which to test egress
 AZURE_CONTAINER_REGISTRY=example.azurecr.io     # name of the Azure Container Registry (not used immediately here but likely in your scenario)
 AZURE_KEY_VAULT=example.vault.azure.net         # name of the Azure Key Vault (not used immediately here but suggested for further enhancement)
 
@@ -88,29 +89,17 @@ az network firewall application-rule create \
 --action allow \
 --priority 201
 
-echo Optional: For demo purposes we allow access to the icanhazip.com website.
+echo Optional: For demo purposes we allow access to the icanhazip.com and microsoft.com websites.
 az network firewall application-rule create \
 -g $RG \
--n 'icanhazip' \
+-n 'allowedsites' \
 -f $FIREWALLNAME \
 -c 'demo' \
 --source-addresses '*' \
 --protocols 'http=80' 'https=443' \
---target-fqdns icanhazip.com \
+--target-fqdns icanhazip.com *.microsoft.com \
 --action allow \
 --priority 202
-
-echo Optional: For demo purposes we allow access to Microsoft website.
-az network firewall application-rule create \
--g $RG \
--n 'microsoft' \
--f $FIREWALLNAME \
--c 'demo' \
---source-addresses '*' \
---protocols 'http=80' 'https=443' \
---target-fqdns *.microsoft.com \
---action allow \
---priority 203
 
 echo Allow access to Azure Container Registry.
 az network firewall application-rule create \
@@ -198,7 +187,7 @@ az containerapp env workload-profile add \
 echo Add the container app for the egress test container.
 az containerapp create \
 -g $RG \
--n egresstest-container-app \
+-n $CONTAINER_APP \
 --environment $CONTAINER_APP_ENVIRONMENT \
 --workload-profile-name 'egresslockdown' \
 --min-replicas 1 \
@@ -208,16 +197,14 @@ az containerapp create \
 echo "----------------------------------------------------------------------------------------------------"
 echo -e "5/5) Testing\n"
 
-echo "1) Execute a bash shell inside the egresstest-container-app container":
-echo "   az containerapp exec -n egresstest-container-app -g $RG --command 'bash'"
-echo.
-echo "2) Execute a curl against an allowed target:"
+echo "1) Launch a bash shell inside the $CONTAINER_APP container":
+echo -e "   az containerapp exec -n $CONTAINER_APP -g $RG --command 'bash'\n"
+echo "2) Execute curl commands against an allowed target:"
 echo "   curl icanhazip.com"
-echo "   curl microsoft.com"
-echo.
-echo "3) Execute a curl against any other target to see denied traffic."
+echo -e "   curl microsoft.com\n"
+echo -e "3) Execute curl commands against any other target to see denied traffic.\n"
 
-az containerapp exec -n egresstest-container-app -g $RG --command 'bash'
+az containerapp exec -n $CONTAINER_APP -g $RG --command 'bash'
 
 #echo In the container terminal run the following
 #curl icanhazip.com
