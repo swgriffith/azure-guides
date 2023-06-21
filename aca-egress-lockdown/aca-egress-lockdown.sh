@@ -9,8 +9,9 @@ FIREWALLNAME=afw-azure-egress                   # name of the Azure Firewall
 VNET_NAME=vnet-aca                              # name of the Azure virtual network
 CONTAINER_APP_ENVIRONMENT=acae-egress-lockdown  # name of the Azure Container App Environment
 CONTAINER_APP=aca-egresstest                    # name of the Azure Container App from which to test egress
-AZURE_CONTAINER_REGISTRY=example.azurecr.io     # name of the Azure Container Registry (not used immediately here but likely in your scenario)
-AZURE_KEY_VAULT=example.vault.azure.net         # name of the Azure Key Vault (not used immediately here but suggested for further enhancement)
+# Optional if you use an ACR and/or AKV (also need to uncomment firewall rules below then)
+# AZURE_CONTAINER_REGISTRY=example.azurecr.io     # name of the Azure Container Registry (not used immediately here but likely in your scenario)
+# AZURE_KEY_VAULT=example.vault.azure.net         # name of the Azure Key Vault (not used immediately here but suggested for further enhancement)
 
 echo "----------------------------------------------------------------------------------------------------"
 
@@ -65,17 +66,17 @@ az network firewall create -g $RG -n $FIREWALLNAME --enable-dns-proxy true
 echo Configure the Firewall Public IP.
 az network firewall ip-config create -g $RG -f $FIREWALLNAME -n aca-firewallconfig --public-ip-address azfirewall-ip --vnet-name $VNET_NAME
 
-echo Create the application rule for access to the Azure Container Registry.
-az network firewall application-rule create \
--g $RG \
--n 'aca-cr' \
--f $FIREWALLNAME \
--c 'aca-cr' \
---source-addresses '*' \
---protocols 'http=80' 'https=443' \
---target-fqdns mcr.microsoft.com *.data.mcr.microsoft.com *.blob.core.windows.net \
---action allow \
---priority 200
+# echo Create the application rule for access to the Azure Container Registry.
+# az network firewall application-rule create \
+# -g $RG \
+# -n 'aca-cr' \
+# -f $FIREWALLNAME \
+# -c 'aca-cr' \
+# --source-addresses '*' \
+# --protocols 'http=80' 'https=443' \
+# --target-fqdns mcr.microsoft.com *.data.mcr.microsoft.com *.blob.core.windows.net \
+# --action allow \
+# --priority 200
 
 echo Optional: For our demo we will use a docker hub image, so we need to allow Docker Hub access.
 az network firewall application-rule create \
@@ -101,29 +102,30 @@ az network firewall application-rule create \
 --action allow \
 --priority 202
 
-echo Allow access to Azure Container Registry.
-az network firewall application-rule create \
--g $RG \
--n 'acr' \
--f $FIREWALLNAME \
--c 'acr' \
---source-addresses '*' \
---protocols 'http=80' 'https=443' \
---target-fqdns $AZURE_CONTAINER_REGISTRY *.blob.windows.net \
---action allow \
---priority 300
+# TODO: Enable these resources when you are using an Azure Container Registry and/or an Azure Key Vault
+# echo Allow access to Azure Container Registry.
+# az network firewall application-rule create \
+# -g $RG \
+# -n 'acr' \
+# -f $FIREWALLNAME \
+# -c 'acr' \
+# --source-addresses '*' \
+# --protocols 'http=80' 'https=443' \
+# --target-fqdns $AZURE_CONTAINER_REGISTRY *.blob.windows.net \
+# --action allow \
+# --priority 300
 
-echo Allow access to Azure Key Vault.
-az network firewall application-rule create \
--g $RG \
--n 'akv' \
--f $FIREWALLNAME \
--c 'akv' \
---source-addresses '*' \
---protocols 'http=80' 'https=443' \
---target-fqdns $AZURE_KEY_VAULT login.microsoft.com \
---action allow \
---priority 301
+# echo Allow access to Azure Key Vault.
+# az network firewall application-rule create \
+# -g $RG \
+# -n 'akv' \
+# -f $FIREWALLNAME \
+# -c 'akv' \
+# --source-addresses '*' \
+# --protocols 'http=80' 'https=443' \
+# --target-fqdns $AZURE_KEY_VAULT login.microsoft.com \
+# --action allow \
+# --priority 301
 
 echo Get the public and private IPs of the Azure Firewall for the routing rules.
 FWPUBLIC_IP=$(az network public-ip show -g $RG -n azfirewall-ip --query "ipAddress" -o tsv)
@@ -200,11 +202,6 @@ echo -e "5/5) Testing\n"
 echo "1) Launch a bash shell inside the $CONTAINER_APP container":
 echo -e "   az containerapp exec -n $CONTAINER_APP -g $RG --command 'bash'\n"
 echo "2) Execute curl commands against an allowed target:"
-echo "   curl icanhazip.com"
-echo -e "   curl microsoft.com\n"
+echo "   curl -v icanhazip.com"
+echo -e "   curl -v www.microsoft.com\n"
 echo -e "3) Execute curl commands against any other target to see denied traffic.\n"
-
-az containerapp exec -n $CONTAINER_APP -g $RG --command 'bash'
-
-#echo In the container terminal run the following
-#curl icanhazip.com
