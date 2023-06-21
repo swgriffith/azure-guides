@@ -73,7 +73,7 @@ az network firewall application-rule create \
 -n 'aca-cr' \
 --source-addresses '*' \
 --protocols 'http=80' 'https=443' \
---target-fqdns $TARGET_FQDNS \
+--target-fqdns ${TARGET_FQDNS[@]} \
 --action allow --priority 200
 
 # Optional: 
@@ -208,7 +208,7 @@ az network firewall application-rule create \
 -n 'acr' \
 --source-addresses '*' \
 --protocols 'http=80' 'https=443' \
---target-fqdns $TARGET_FQDNS \
+--target-fqdns ${TARGET_FQDNS[@]} \
 --action allow --priority 300
 ```
 
@@ -227,6 +227,6 @@ az network firewall application-rule create \
 -n 'akv' \
 --source-addresses '*' \
 --protocols 'http=80' 'https=443' \
---target-fqdns $TARGET_FQDNS \
+--target-fqdns ${TARGET_FQDNS[@]} \
 --action allow --priority 301
 ```
