@@ -64,7 +64,7 @@ echo Create the Azure Firewall.
 az network firewall create -g $RG -n $FIREWALLNAME --enable-dns-proxy true
 
 echo Configure the Firewall Public IP.
-az network firewall ip-config create -g $RG -f $FIREWALLNAME -n aca-firewallconfig --public-ip-address azfirewall-ip --vnet-name $VNET_NAME
+az network firewall ip-config create -g $RG -f $FIREWALLNAME -n aca-firewallconfig --public-ip-address pip-azfirewall --vnet-name $VNET_NAME
 
 # echo Create the application rule for access to the Azure Container Registry.
 # az network firewall application-rule create \
@@ -128,7 +128,7 @@ az network firewall application-rule create \
 # --priority 301
 
 echo Get the public and private IPs of the Azure Firewall for the routing rules.
-FWPUBLIC_IP=$(az network public-ip show -g $RG -n azfirewall-ip --query "ipAddress" -o tsv)
+FWPUBLIC_IP=$(az network public-ip show -g $RG -n pip-azfirewall --query "ipAddress" -o tsv)
 FWPRIVATE_IP=$(az network firewall show -g $RG -n $FIREWALLNAME --query "ipConfigurations[0].privateIPAddress" -o tsv)
 
 echo Create Route Table.
