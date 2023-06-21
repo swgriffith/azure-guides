@@ -19,7 +19,7 @@ az group create -g $RG -l $LOC
 # Set an environment variable for the VNet name
 VNET_NAME=aca-vnet
 
-# Create the Vnet along with the initial subet for ACA
+# Create the Vnet along with the initial subnet for ACA
 az network vnet create \
 -g $RG \
 -n $VNET_NAME \
