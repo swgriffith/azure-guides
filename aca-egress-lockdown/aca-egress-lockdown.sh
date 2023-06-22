@@ -5,27 +5,27 @@
 # TODO: This is the only configuration you need to make in this script. Naming is based on Cloud Adoption Framework naming standards.
 RG=rg-aca-egress-lockdown                       # name of the resource group to contain all assets
 LOC=eastus                                      # location of assets
-FIREWALLNAME=afw-azure-egress                   # name of the Azure Firewall
 VNET_NAME=vnet-aca                              # name of the Azure virtual network
+LOG_ANALYTICS_WORKSPACE=law-egresstest          # name of the Log Analytics Workspace to which to send logs and metrics
+FIREWALLNAME=afw-azure-egress                   # name of the Azure Firewall
 CONTAINER_APP_ENVIRONMENT=acae-egress-lockdown  # name of the Azure Container App Environment
 CONTAINER_APP=aca-egresstest                    # name of the Azure Container App from which to test egress
 # Optional if you use an ACR and/or AKV (also need to uncomment firewall rules below then)
 # AZURE_CONTAINER_REGISTRY=example.azurecr.io     # name of the Azure Container Registry (not used immediately here but likely in your scenario)
 # AZURE_KEY_VAULT=example.vault.azure.net         # name of the Azure Key Vault (not used immediately here but suggested for further enhancement)
 
-echo "----------------------------------------------------------------------------------------------------"
-
 # 1) Resource group
-echo -e "1/5) Resource group\n"
+echo "----------------------------------------------------------------------------------------------------"
+echo -e "1/6) Resource group\n"
 
 echo Create the resource group.
 az group create -g $RG -l $LOC
 
 # 2) VNet
 echo "----------------------------------------------------------------------------------------------------"
-echo -e "2/5) Virtual Network\n"
+echo -e "2/6) Virtual Network\n"
 
-echo Create the virtualnetwork along with the initial subnet for Azure Container Apps.
+echo Create the virtual network along with the initial subnet for Azure Container Apps.
 az network vnet create \
 -g $RG \
 -n $VNET_NAME \
@@ -52,7 +52,7 @@ PRIV_ACA_ENV_SUBNET_ID=$(az network vnet subnet show -g $RG --vnet-name $VNET_NA
 
 # 3) Firewall
 echo "----------------------------------------------------------------------------------------------------"
-echo -e "3/5) Firewall\n"
+echo -e "3/6) Firewall\n"
 
 echo Add the Azure Firewall CLI extension.
 az extension add -n azure-firewall
@@ -63,8 +63,11 @@ az network public-ip create -g $RG -n pip-azfirewall --sku "Standard"
 echo Create the Azure Firewall.
 az network firewall create -g $RG -n $FIREWALLNAME --enable-dns-proxy true
 
-echo Configure the Firewall Public IP.
+echo Configure the Azure Firewall Public IP.
 az network firewall ip-config create -g $RG -f $FIREWALLNAME -n aca-firewallconfig --public-ip-address pip-azfirewall --vnet-name $VNET_NAME
+
+echo Get the Azure Firewall ID for later use.
+FIREWALL_ID=$(az network firewall list -g $RG --query "[0].id" -o tsv)
 
 # echo Create the application rule for access to the Azure Container Registry.
 # az network firewall application-rule create \
@@ -159,9 +162,30 @@ az network vnet subnet update \
 --vnet-name $VNET_NAME \
 --route-table udr-aca
 
-# 4) Container App Environment & Container App"
+# 4) Log Analytics Workspace
 echo "----------------------------------------------------------------------------------------------------"
-echo -e "4/5) Container App Environment & Container App\n"
+echo -e "4/6) Log Analytics Workspace\n"
+
+echo Create the Log Analytics Workspace
+az monitor log-analytics workspace create \
+-g $RG \
+--workspace-name $LOG_ANALYTICS_WORKSPACE
+
+echo Get the Log Analytics workspace ID
+WORKSPACE_ID=$(az monitor log-analytics workspace show -g $RG --workspace-name $LOG_ANALYTICS_WORKSPACE --query id -o tsv)
+echo $WORKSPACE_ID
+
+echo Send Azure Firewall logs to Log Analytics Workspace.
+az monitor diagnostic-settings create \
+--workspace $WORKSPACE_ID \
+--resource $FIREWALL_ID \
+--name "Firewall logs" \
+--logs '[{"category":"AzureFirewallApplicationRule","enabled":true},{"category":"AzureFirewallNetworkRule","enabled":true},{"category":"AzureFirewallDnsProxy","enabled":true}]' \
+--metrics '[{"category":"AllMetrics","enabled":true}]'
+
+# 5) Container App Environment & Container App"
+echo "----------------------------------------------------------------------------------------------------"
+echo -e "5/6) Container App Environment & Container App\n"
 
 echo Add the Azure Container Apps CLI extension.
 az extension add -n containerapp
@@ -195,13 +219,13 @@ az containerapp create \
 --min-replicas 1 \
 --image nginx 
 
-# 5) Testing
+# 6) Testing
 echo "----------------------------------------------------------------------------------------------------"
-echo -e "5/5) Testing\n"
+echo -e "6/6) Testing\n"
 
 echo "1) Launch a bash shell inside the $CONTAINER_APP container":
 echo -e "   az containerapp exec -n $CONTAINER_APP -g $RG --command 'bash'\n"
 echo "2) Execute curl commands against an allowed target:"
-echo "   curl -v icanhazip.com"
+echo "   curl -v https://icanhazip.com"
 echo -e "   curl -v www.microsoft.com\n"
 echo -e "3) Execute curl commands against any other target to see denied traffic.\n"
