@@ -102,4 +102,5 @@ In the below, after we've scaled back up to 3 pods, you can see that the traffic
 
 ### Video 
 You can see a video of this demo here:
-[demo](https://griffcontent.blob.core.windows.net/public/stickyscaledemo.mp4)
+[demo](https://griffithcontent.blob.core.windows.net/public/stickyscaledemo.mp4)
+
