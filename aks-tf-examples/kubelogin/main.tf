@@ -1,7 +1,7 @@
-# Get the SPN for RBAC enabled AKS Clusters in this Tenant
-data "azuread_service_principal" "aks" {
-  display_name = "Azure Kubernetes Service AAD Server"
-}
+# # Get the SPN for RBAC enabled AKS Clusters in this Tenant
+# data "azuread_service_principal" "aks" {
+#   display_name = "Azure Kubernetes Service AAD Server"
+# }
 
 # Generate random resource group name
 resource "random_pet" "rg_name" {
@@ -80,7 +80,7 @@ provider "kubernetes" {
       "--tenant-id",
       var.tenant_id,
       "--server-id",
-      data.azuread_service_principal.aks.application_id,
+      var.client_id,
       "--client-id",
       var.client_id,
       "--client-secret",
