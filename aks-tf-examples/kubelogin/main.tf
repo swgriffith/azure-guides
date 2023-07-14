@@ -1,7 +1,7 @@
-# # Get the SPN for RBAC enabled AKS Clusters in this Tenant
-# data "azuread_service_principal" "aks" {
-#   display_name = "Azure Kubernetes Service AAD Server"
-# }
+# Get the SPN for RBAC enabled AKS Clusters in this Tenant
+data "azuread_service_principal" "aks" {
+  display_name = "Azure Kubernetes Service AAD Server"
+}
 
 # Generate random resource group name
 resource "random_pet" "rg_name" {
@@ -43,25 +43,7 @@ resource "azurerm_kubernetes_cluster" "k8s" {
   default_node_pool {
     name       = "agentpool"
     vm_size    = "Standard_D2_v2"
-    node_count = var.node_count
-    vnet_subnet_id = var.vnet_subnet_id    
-  }
-
-  private_cluster_enabled = false
-
-  network_profile {
-    network_plugin      = var.network_profile.network_plugin
-    network_plugin_mode = var.network_profile.network_plugin_mode
-    network_policy      = var.network_profile.network_policy
-    load_balancer_sku   = var.network_profile.load_balancer_sku
-    outbound_type       = var.network_profile.outbound_type
-    service_cidr        = var.network_profile.service_cidr
-    service_cidrs       = var.network_profile.service_cidrs
-    dns_service_ip      = var.network_profile.dns_service_ip
-    pod_cidr            = var.network_profile.pod_cidr
-    pod_cidrs           = var.network_profile.pod_cidrs
-    ip_versions         = var.network_profile.ip_versions
-    ebpf_data_plane     = var.network_profile.ebpf_data_plane
+    node_count = var.node_count  
   }
 }
 
@@ -80,7 +62,7 @@ provider "kubernetes" {
       "--tenant-id",
       var.tenant_id,
       "--server-id",
-      var.client_id,
+      data.azuread_service_principal.aks.application_id,
       "--client-id",
       var.client_id,
       "--client-secret",
