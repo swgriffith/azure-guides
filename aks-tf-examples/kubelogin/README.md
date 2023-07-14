@@ -62,7 +62,7 @@ While the deployment is running, lets cover how this works. As noted above our c
 Here are the steps:
 
 1. Resource Group and Cluster are created
-2. The Kubernetes provider runs 'kubeloing get-token' passing in some of the details from the cluster creation (ex. API Server FQDN) as well as the service principal credentials. It also needs the application ID of the AKS cluster login server, which we get via the 'azuread_service_principal' block.
+2. The Kubernetes provider runs 'kubelogin get-token' passing in some of the details from the cluster creation (ex. API Server FQDN) as well as the service principal credentials. It also needs the application ID of the AKS cluster login server, which we get via the 'azuread_service_principal' block.
 3. The 'kubernetes_deployment' block runs using the kubernetes provider, which now has it's access token, to run the nginx deployment
 
 ## Conclusion
