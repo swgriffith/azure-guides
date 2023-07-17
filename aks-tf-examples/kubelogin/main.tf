@@ -71,7 +71,7 @@ provider "kubernetes" {
   }
 }
 
-resource "kubernetes_deployment" "nginx" {
+resource "kubernetes_deployment_v1" "nginx" {
   provider = kubernetes
   metadata {
     name = "scalable-nginx-example"
