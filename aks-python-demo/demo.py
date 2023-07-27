@@ -48,7 +48,7 @@ aConfiguration.host = "https://"+ aks_api_server + ":443"
 aConfiguration.verify_ssl = False
 aToken=token["accessToken"]
 aConfiguration.api_key = {"authorization": "Bearer " + aToken}
-aConfiguration.ssl_ca_cert="/Users/griffith/github.com/azure-guides/aks-python-demo/ca.crt"
+#aConfiguration.ssl_ca_cert="ca.crt"
 
 # Create a ApiClient with our config
 aApiClient = client.ApiClient(aConfiguration)
