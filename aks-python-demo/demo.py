@@ -22,15 +22,13 @@ app_obj_id = os.environ.get("APP_OBJ_ID")
 aks_aad_server_id = os.environ.get("AKS_AAD_SERVER_ID")
 
 # Get the cluster info
-resource_group = os.environ.get("RG")
-cluster_name = os.environ.get("CLUSTER_NAME")
+# resource_group = os.environ.get("RG")
+# cluster_name = os.environ.get("CLUSTER_NAME")
 aks_api_server = os.environ.get("AKS_API_SERVER")
 
-container_service_client = ContainerServiceClient(credential, subscription_id)
+# container_service_client = ContainerServiceClient(credential, subscription_id)
 
-kubeconfig = container_service_client.managed_clusters.list_cluster_user_credentials(resource_group, cluster_name).kubeconfigs[0]
-
-#print(kubeconfig)
+# kubeconfig = container_service_client.managed_clusters.list_cluster_user_credentials(resource_group, cluster_name).kubeconfigs[0]
 
 authority_url = 'https://login.microsoftonline.com/'+tenant_id
 context = adal.AuthenticationContext(authority_url)
@@ -40,6 +38,8 @@ token = context.acquire_token_with_client_credentials(
     client_secret=passwd
 )
 
+
+
 # Create a configuration object
 aConfiguration = client.Configuration()
 
@@ -48,7 +48,7 @@ aConfiguration.host = "https://"+ aks_api_server + ":443"
 aConfiguration.verify_ssl = False
 aToken=token["accessToken"]
 aConfiguration.api_key = {"authorization": "Bearer " + aToken}
-aConfiguration.ssl_ca_cert="ca.crt"
+aConfiguration.ssl_ca_cert="/Users/griffith/github.com/azure-guides/aks-python-demo/ca.crt"
 
 # Create a ApiClient with our config
 aApiClient = client.ApiClient(aConfiguration)
