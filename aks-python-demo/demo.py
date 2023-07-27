@@ -3,6 +3,10 @@ from azure.mgmt.containerservice import ContainerServiceClient
 import os
 import adal
 from kubernetes import client, config
+import urllib3
+
+# Disable the TLS Warning, since we know and trust the ca
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Get the CLI Credential for the current logged in user
 credential = AzureCliCredential()
