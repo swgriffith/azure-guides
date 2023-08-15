@@ -16,7 +16,6 @@ LOC=eastus
 CLUSTER_NAME=wisqllab
 UNIQUE_ID=$CLUSTER_NAME$RANDOM
 ACR_NAME=$UNIQUE_ID
-KEY_VAULT_NAME=$UNIQUE_ID
 
 # Create the resource group
 az group create -g $RG -l $LOC
@@ -34,7 +33,7 @@ az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 ### Set up the identity 
 
-In order to federate a managed identity with a Kubernetes Service Account we need to get the AKS OIDC Issure URL, create the Managed Identity and Service Account and then create the federation.
+In order to federate a managed identity with a Kubernetes Service Account we need to get the AKS OIDC Issure URL, create the Managed Identity and Service Account and then setup the federation.
 
 ```bash
 # Get the OIDC Issuer URL
@@ -165,7 +164,7 @@ dotnet run
 
 # Add the Key Vault and Azure Identity Packages
 dotnet add package Microsoft.Data.SqlClient
-dotnet add package Azure.Identity
+#dotnet add package Azure.Identity
 ```
 
 Edit the app Program.cs as follows:
@@ -214,7 +213,7 @@ namespace sqltest
                 {
                     Console.WriteLine(e.ToString());
                 }
-            System.Threading.Thread.Sleep(10000);
+            System.Threading.Thread.Sleep(5000);
             }
         }
     }
@@ -225,7 +224,6 @@ Test the changes
 
 ```bash
 # Build and run the console app
-dotnet build
 DB_SERVER_FQDN=$DB_SERVER_FQDN DATABASE_NAME=$DATABASE_NAME dotnet run
 
 ##################################################################
@@ -261,11 +259,11 @@ Build the image. I'll create an Azure Container Registry and build there, and th
 # Create the ACR
 az acr create -g $RG -n $ACR_NAME --sku Standard
 
+# Link the ACR to the AKS cluster
+az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME --no-wait
+
 # Build the image
 az acr build -t wi-sql-test -r $ACR_NAME .
-
-# Link the ACR to the AKS cluster
-az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME
 ```
 
 Now deploy a pod that gets the value using the service account identity.
