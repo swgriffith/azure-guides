@@ -179,8 +179,8 @@ namespace sqltest
     {
         static void Main(string[] args)
         {
-            string? dbServerFQDN = Environment.GetEnvironmentVariable("DB_SERVER_FQDN");;
-            string? dbName = Environment.GetEnvironmentVariable("DATABASE_NAME");;
+            string? dbServerFQDN = Environment.GetEnvironmentVariable("DB_SERVER_FQDN");
+            string? dbName = Environment.GetEnvironmentVariable("DATABASE_NAME");
             
             while(true){
                 try 
@@ -219,6 +219,18 @@ namespace sqltest
         }
     }
 }
+```
+
+Test the changes
+
+```bash
+# Build and run the console app
+dotnet build
+DB_SERVER_FQDN=$DB_SERVER_FQDN DATABASE_NAME=$DATABASE_NAME dotnet run
+
+##################################################################
+# You should see the console app return sample data at this point
+##################################################################
 ```
 
 Create a new Dockerfile with the following.
