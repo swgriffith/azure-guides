@@ -1,4 +1,4 @@
-# Using Accessing Azure SQL DB via Workload Identity and Managed Identity
+# Accessing Azure SQL DB via Workload Identity and Managed Identity
 
 ## Introduction
 
