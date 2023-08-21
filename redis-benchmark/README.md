@@ -64,19 +64,19 @@ REDIS_HOST=$(az redis show -g $RG -n $REDIS_NAME -o tsv --query hostName)
 REDIS_ACCESS_KEY=$(az redis list-keys -g $RG -n $REDIS_NAME -o tsv --query primaryKey)
 
 # Pre-test setup: Prepare the cache instance with data required for the latency and throughput testing:
-kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024 --tls
-kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024 --tls --insecure -p 6380
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024 --tls --insecure -p 6380
 
 # To test latency: Test GET requests using a 1k payload:
-kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4
-kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4 --tls --insecure -p 6380
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4 --tls --insecure -p 6380
 
 # To test throughput: Pipelined GET requests with 1k payload:
-kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50
-kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50 --tls --insecure -p 6380
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50 --tls --insecure -p 6380
 
 # To test throughput of a Basic, Standard, or Premium tier cache using TLS: Pipelined GET requests with 1k payload:
-kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50 
-kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50 --tls --insecure -p 6380
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50 --tls --insecure -p 6380
 
 ```
