@@ -43,6 +43,17 @@ az redis create \
 --vm-size P1 \
 --zones 1
 
+CLUSTER_IP_ID=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query "networkProfile.loadBalancerProfile.effectiveOutboundIPs[0].id")
+CLUSTER_EGRESS_IP=$(az network public-ip show --ids $CLUSTER_IP_ID -o tsv --query ipAddress)
+
+az redis firewall-rules create \
+--name $REDIS_NAME \
+--resource-group $RG \
+--rule-name allowaks \
+--start-ip $CLUSTER_EGRESS_IP \
+--end-ip $CLUSTER_EGRESS_IP 
+
+
 # Deploy the zone 1 test client
 kubectl apply -f redis-benchmark-zone1.yaml
 
@@ -52,8 +63,20 @@ kubectl apply -f redis-benchmark-zone2.yaml
 REDIS_HOST=$(az redis show -g $RG -n $REDIS_NAME -o tsv --query hostName)
 REDIS_ACCESS_KEY=$(az redis list-keys -g $RG -n $REDIS_NAME -o tsv --query primaryKey)
 
-kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 10 -d 1024
+# Pre-test setup: Prepare the cache instance with data required for the latency and throughput testing:
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024 --tls
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 100000 -d 1024
 
-kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t SET -n 10 -d 1024
+# To test latency: Test GET requests using a 1k payload:
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t GET -d 1024 -P 50 -c 4
+
+# To test throughput: Pipelined GET requests with 1k payload:
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50  -c 50
+
+# To test throughput of a Basic, Standard, or Premium tier cache using TLS: Pipelined GET requests with 1k payload:
+kubectl exec -it redis-zone1 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50 
+kubectl exec -it redis-zone2 -- redis-benchmark -h $REDIS_HOST -a $REDIS_ACCESS_KEY -t  GET -n 1000000 -d 1024 -P 50 -c 50
 
 ```
