@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: set-ulimit
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: set-ulimit
+  template:
+    metadata:
+      labels:
+        name: set-ulimit
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: set-ulimit
+        image: mcr.microsoft.com/cbl-mariner/base/core:1.0
+        command:
+          - nsenter
+          - --target
+          - "1"
+          - --mount
+          - --uts
+          - --ipc
+          - --net
+          - --pid
+          - --
+          - bash
+          - -exc
+          - |
+            [[ -f /etc/systemd/system/containerd.service.d/99-ulimit-stack.conf ]] && sleep infinity
+            
+            cat <<EOF >>/etc/systemd/system/containerd.service.d/99-ulimit-stack.conf 
+            [Service]
+            LimitSTACK=100000000
+            EOF
+            
+            systemctl daemon-reload
+            systemctl restart containerd
+            sleep infinity
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 16Mi
+        securityContext:
+          privileged: true
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      terminationGracePeriodSeconds: 0
+
