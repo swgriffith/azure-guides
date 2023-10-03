@@ -39,6 +39,7 @@ spec:
             cat <<EOF >>/etc/systemd/system/containerd.service.d/99-ulimit-stack.conf 
             [Service]
             LimitSTACK=100000000
+            LimitMEMLOCK=infinity
             EOF
             
             systemctl daemon-reload
