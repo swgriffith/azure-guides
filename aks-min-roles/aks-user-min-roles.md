@@ -9,6 +9,7 @@ First we'll create an AKS cluster with Azure AD integrated authentication and Az
 ### Cluster Creation
 
 ```bash
+SUBSCRIPTION_ID=''
 RG=EphAADDemo
 LOC=eastus
 CLUSTER_NAME=aad-demo
@@ -35,6 +36,9 @@ kubectl create deployment nginx --image=nginx --namespace sample-app
 # Expose the deployment as a Kubernetes service
 kubectl expose deployment nginx --port 8080 --target-port 80 --namespace sample-app
 
+# Create a secret
+kubectl create secret generic sample-secret --from-literal=message=Hello -n sample-app
+
 # Check out the created resources
 kubectl get all -n sample-app
 ```
@@ -55,7 +59,7 @@ TENANT=$(cat sample-app-team-user.json|jq -r .tenant)
 
 ### Allow user to call 'az aks get-credentials'
 
-We need to be able to get the cluster access details, which will live in the 'kubeconfig' file and include the cluster FQDN and API access certificates. We got the admin credentials above, but we dont want to use those. If you want, at this point you can delete the kube config file, which should reside at ~/.kube/config.  
+We need to be able to get the cluster access details, which will live in the 'kubeconfig' file and include the cluster FQDN and API access certificates. We got the admin credentials above, but we dont want to use those. We'll use the admin credential again later, so dont delete it just yet.  
 
 ```bash
 # First we need the resource ID for the cluster
@@ -86,7 +90,7 @@ az vm list
 az aks get-credentials -g $RG -n $CLUSTER_NAME
 ```
 
-This is where things get a little weird in our scenario. We're signing in as a service account. In the next step we'll try to use the kubernetes cli (kubectl), and for normal human users you would get a device login prompt, which will take you to your normal Azure AD multi-factor auth flow. However, we're using a service principal, so we need to take a few extra steps and use the [kubelogin](https://azure.github.io/kubelogin/quick-start.html) project to sign in.
+This is where things get a little weird in our scenario. We're signing in as a service account. In the next step we'll try to use the kubernetes cli (kubectl), and for normal human users you would get a device login prompt, which will take you to your normal Azure AD multi-factor auth flow. However, we're using a service principal so we need to take a few extra steps and use the [kubelogin](https://azure.github.io/kubelogin/quick-start.html) project to sign in.
 
 You'll likely need to install kubelogin. You can find the installation steps here: [Installation](https://azure.github.io/kubelogin/install.html)
 
@@ -184,3 +188,58 @@ kubectl get roles
 AKS provides 4 out of the box roles for Azure RBAC in Kubernetes. You can read more [here](https://learn.microsoft.com/en-us/azure/aks/manage-azure-rbac#create-role-assignments-for-users-to-access-the-cluster)
 
 ![OOB Roles](images/oob-roles.jpg)
+
+## Create a custom role definition
+
+If we want to expand the role to include secrets reader access then we'll need a custom role.
+
+```bash
+# Make sure you're logged in as your normal user account
+
+# Create the role definition file
+cat << EOF > secrets-aad-role.json
+{
+    "Name": "AKS Sample App Secrets Reader",
+    "Description": "Lets you view all Secrets in the sample-app namespace.",
+    "Actions": [],
+    "NotActions": [],
+    "DataActions": [
+        "Microsoft.ContainerService/managedClusters/secrets/read"
+    ],
+    "NotDataActions": [],
+    "assignableScopes": [
+        "$CLUSTER_RESOURCE_ID/namespaces/sample-app"
+    ]
+}
+EOF
+
+# Create the role definition in Azure
+az role definition create --role-definition @secrets-aad-role.json
+
+#####################################################################
+#
+# NOTE!!! Role propegation may take a couple minutes, so if this fails
+# wait a minute and try again.
+#
+#####################################################################
+
+# Assign the role
+az role assignment create --role "AKS Sample App Secrets Reader" --assignee $APP_ID --scope $CLUSTER_RESOURCE_ID/namespaces/sample-app
+```
+
+Now that the custom role has been created and applied, we can log back in as our service principal and test it's ability to view secrets.
+
+```bash
+# Log in as the service principal
+az login --service-principal -u $APP_ID -p $APP_SECRET --tenant $TENANT
+
+# Look at the secret created previously
+kubectl get secrets -n sample-app
+
+# Get the value out of the secret...keeping mind that secrets are base64 encoded
+kubectl get secret sample-secret -n sample-app -o jsonpath='{.data.message}'|base64 --decode
+```
+
+## Conclusion
+
+This walk-through demonstrated setting up an AKS cluster with Azure AD authenitication and Azure AD RBAC enabled, and then how to use Azure built in roles, as well as custom roles, to interact with your cluster.
