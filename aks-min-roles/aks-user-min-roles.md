@@ -208,7 +208,7 @@ cat << EOF > secrets-aad-role.json
     ],
     "NotDataActions": [],
     "assignableScopes": [
-        "$CLUSTER_RESOURCE_ID/namespaces/sample-app"
+        "subscriptions/$SUBSCRIPTION_ID"
     ]
 }
 EOF
