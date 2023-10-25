@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-policy-fail
+spec:
+  rules:
+  - host: "myapp.com"
+    http:
+      paths:
+      - path: /myapp
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp-svc
+            port: 
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-policy-pass
+spec:
+  rules:
+  - host: "test.demoapp.com"
+    http:
+      paths:
+      - path: /myapp
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp-svc
+            port: 
+              number: 80

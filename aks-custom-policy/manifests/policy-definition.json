@@ -1,0 +1,68 @@
+{
+    "properties": {
+        "displayName": "Restrict Ingress Hostname",
+        "policyType": "Custom",
+        "mode": "Microsoft.Kubernetes.Data",
+        "description": "Restrict the host names used in ingress objects",
+        "metadata": {
+            "version": "1.0.0",
+            "category": "Kubernetes"
+        },
+        "parameters": {
+            "effect": {
+                "type": "String",
+                "metadata": {
+                    "displayName": "Effect",
+                    "description": "Enable or disable the execution of the policy"
+                },
+                "allowedValues": [
+                    "audit",
+                    "deny",
+                    "disabled"
+                ],
+                "defaultValue": "audit"
+            },
+            "excludedNamespaces": {
+                "type": "Array",
+                "metadata": {
+                    "displayName": "Namespace exclusions",
+                    "description": "List of Kubernetes namespaces to exclude from policy evaluation. Providing a value for this parameter is optional."
+                },
+                "defaultValue": [
+                    "kube-system",
+                    "gatekeeper-system",
+                    "azure-arc"
+                ]
+            }
+        },
+        "policyRule": {
+            "if": {
+                "field": "type",
+                "in": [
+                    "AKS Engine",
+                    "Microsoft.Kubernetes/connectedClusters",
+                    "Microsoft.ContainerService/managedClusters"
+                ]
+            },
+            "then": {
+                "effect": "[parameters('effect')]",
+                "details": {
+                    "templateInfo": {
+                        "sourceType": "Base64Encoded",
+                        "content": "YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgZW5kc3dpdGgoaG9zdCwgIi5kZW1vYXBwLmNvbSIpCiAgICAgICAgICBtc2cgOj0gc3ByaW50ZigiaW52YWxpZCBpbmdyZXNzIGhvc3QgJXEiLCBbaG9zdF0pCiAgICAgICAgfQo="
+                    },
+                    "values": {
+                        "excludedNamespaces": "[parameters('excludedNamespaces')]"
+                    },
+                    "apiGroups": [
+                        "extensions", 
+                        "networking.k8s.io"
+                    ],
+                    "kinds": [
+                        "Ingress"
+                    ]
+                }
+            }
+        }
+    }
+}

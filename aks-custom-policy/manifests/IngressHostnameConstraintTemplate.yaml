@@ -1,0 +1,21 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srestrictingresshostname
+  annotations:
+    description: Restricts hostname for ingress
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRestrictIngressHostname # this must be the same name as the name on metadata.name (line 4)            
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srestrictingresshostname
+
+        violation[{"msg": msg}] {
+          host := input.review.object.spec.rules[_].host
+          not endswith(host, ".demoapp.com")
+          msg := sprintf("invalid ingress host %q", [host])
+        }
