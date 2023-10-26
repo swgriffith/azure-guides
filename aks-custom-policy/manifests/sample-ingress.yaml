@@ -18,7 +18,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-policy-pass
+  name: ingress-policy-pass1
 spec:
   rules:
   - host: "test.demoapp.com"
@@ -31,3 +31,20 @@ spec:
             name: webapp-svc
             port: 
               number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-policy-pass2
+spec:
+  rules:
+  - host: "test.demoapp2.com"
+    http:
+      paths:
+      - path: /myapp
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp-svc
+            port: 
+              number: 80              

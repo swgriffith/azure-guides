@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this walkthrough we'll use the [Gatekeeper](https://open-policy-agent.github.io/gatekeeper/website/) project and [AKS Policy](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes) to create a policy that resticts the host name on a Kubernetes Ingress.
+In this walkthrough we'll use the [Gatekeeper](https://open-policy-agent.github.io/gatekeeper/website/) project and [AKS Policy](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/policy-for-kubernetes) to create a policy that resticts the host name on a Kubernetes Ingress. The host names used for validation will be provided via parameters on the Azure Policy assignment.
 
 ## Cluster Setup
 
@@ -28,7 +28,7 @@ az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 While the cluster creates we can work on the contraint template. You can read more about constraint templates here, but they are the CRD that provides Gatekeeper the policy details, including the evaluation which is written in [rego](https://www.openpolicyagent.org/docs/latest/policy-language/).
 
-In our example, we'll keep it simple and just restrict the ingress host name to a value ending in 'demoapp.com'. In a future update I may make this host name value a parameterized option.
+In our example, we'll keep it simple and just restrict the ingress host name to one of the values in an 'allowedhosts' array parameter. The allowedhosts parameter will be set via the constraint definition, or via the policy definition when we create the Azure Policy.
 
 Create a new file named IngressHostnameConstraintTemplate.yaml with the following contents. Or use the doc in [manifests/IngressHostnameConstraintTemplate.yaml](./manifests/IngressHostnameConstraintTemplate.yaml)
 
@@ -44,6 +44,14 @@ spec:
     spec:
       names:
         kind: K8sRestrictIngressHostname # this must be the same name as the name on metadata.name (line 4)            
+      validation:
+        # Schema for the `parameters` field
+        openAPIV3Schema:
+          properties:
+            allowedhosts:
+              type: array
+              items:
+                type: string        
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -51,8 +59,12 @@ spec:
 
         violation[{"msg": msg}] {
           host := input.review.object.spec.rules[_].host
-          not endswith(host, ".demoapp.com")
+          not input_allowed_hosts(host)
           msg := sprintf("invalid ingress host %q", [host])
+        }
+
+        input_allowed_hosts(field) {
+          endswith(field, input.parameters.allowedhosts[_])
         }
 ```
 
@@ -64,7 +76,7 @@ To create a policy in Azure that uses the above constraint template, we need to 
 cat ./manifests/IngressHostnameConstraintTemplate.yaml|base64
 
 # Sample Output
-YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgZW5kc3dpdGgoaG9zdCwgIi5kZW1vYXBwLmNvbSIpCiAgICAgICAgICBtc2cgOj0gc3ByaW50ZigiaW52YWxpZCBpbmdyZXNzIGhvc3QgJXEiLCBbaG9zdF0pCiAgICAgICAgfQo=
+YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICAgICAgdmFsaWRhdGlvbjoKICAgICAgICAjIFNjaGVtYSBmb3IgdGhlIGBwYXJhbWV0ZXJzYCBmaWVsZAogICAgICAgIG9wZW5BUElWM1NjaGVtYToKICAgICAgICAgIHByb3BlcnRpZXM6CiAgICAgICAgICAgIGFsbG93ZWRob3N0czoKICAgICAgICAgICAgICB0eXBlOiBhcnJheQogICAgICAgICAgICAgIGl0ZW1zOgogICAgICAgICAgICAgICAgdHlwZTogc3RyaW5nICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgaW5wdXRfYWxsb3dlZF9ob3N0cyhob3N0KQogICAgICAgICAgbXNnIDo9IHNwcmludGYoImludmFsaWQgaW5ncmVzcyBob3N0ICVxIiwgW2hvc3RdKQogICAgICAgIH0KCiAgICAgICAgaW5wdXRfYWxsb3dlZF9ob3N0cyhmaWVsZCkgewogICAgICAgICAgZW5kc3dpdGgoZmllbGQsIGlucHV0LnBhcmFtZXRlcnMuYWxsb3dlZGhvc3RzW19dKQogICAgICAgIH0=
 ```
 
 Create a new file called 'policy-definition.json', and paste the following contenxt, updating the base64 encoded value with your output from above.
@@ -105,7 +117,15 @@ Create a new file called 'policy-definition.json', and paste the following conte
                     "gatekeeper-system",
                     "azure-arc"
                 ]
-            }
+            },
+            "allowedhosts": {
+                "type": "Array",
+                "metadata": {
+                  "displayName": "Allowed Ingress Host Names",
+                  "description": "List of allowed host names that can be used on Ingress objects."
+                },
+                "defaultValue": []
+              }
         },
         "policyRule": {
             "if": {
@@ -121,10 +141,11 @@ Create a new file called 'policy-definition.json', and paste the following conte
                 "details": {
                     "templateInfo": {
                         "sourceType": "Base64Encoded",
-                        "content": "YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgZW5kc3dpdGgoaG9zdCwgIi5kZW1vYXBwLmNvbSIpCiAgICAgICAgICBtc2cgOj0gc3ByaW50ZigiaW52YWxpZCBpbmdyZXNzIGhvc3QgJXEiLCBbaG9zdF0pCiAgICAgICAgfQo="
+                        "content": "YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICAgICAgdmFsaWRhdGlvbjoKICAgICAgICAjIFNjaGVtYSBmb3IgdGhlIGBwYXJhbWV0ZXJzYCBmaWVsZAogICAgICAgIG9wZW5BUElWM1NjaGVtYToKICAgICAgICAgIHByb3BlcnRpZXM6CiAgICAgICAgICAgIGFsbG93ZWRob3N0czoKICAgICAgICAgICAgICB0eXBlOiBhcnJheQogICAgICAgICAgICAgIGl0ZW1zOgogICAgICAgICAgICAgICAgdHlwZTogc3RyaW5nICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgaW5wdXRfYWxsb3dlZF9ob3N0cyhob3N0KQogICAgICAgICAgbXNnIDo9IHNwcmludGYoImludmFsaWQgaW5ncmVzcyBob3N0ICVxIiwgW2hvc3RdKQogICAgICAgIH0KCiAgICAgICAgaW5wdXRfYWxsb3dlZF9ob3N0cyhmaWVsZCkgewogICAgICAgICAgZW5kc3dpdGgoZmllbGQsIGlucHV0LnBhcmFtZXRlcnMuYWxsb3dlZGhvc3RzW19dKQogICAgICAgIH0="
                     },
+                    "excludedNamespaces": "[parameters('excludedNamespaces')]",
                     "values": {
-                        "excludedNamespaces": "[parameters('excludedNamespaces')]"
+                        "allowedhosts": "[parameters('allowedhosts')]"
                     },
                     "apiGroups": [
                         "extensions", 

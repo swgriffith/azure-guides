@@ -33,7 +33,15 @@
                     "gatekeeper-system",
                     "azure-arc"
                 ]
-            }
+            },
+            "allowedhosts": {
+                "type": "Array",
+                "metadata": {
+                  "displayName": "Allowed Ingress Host Names",
+                  "description": "List of allowed host names that can be used on Ingress objects."
+                },
+                "defaultValue": []
+              }
         },
         "policyRule": {
             "if": {
@@ -49,10 +57,11 @@
                 "details": {
                     "templateInfo": {
                         "sourceType": "Base64Encoded",
-                        "content": "YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgZW5kc3dpdGgoaG9zdCwgIi5kZW1vYXBwLmNvbSIpCiAgICAgICAgICBtc2cgOj0gc3ByaW50ZigiaW52YWxpZCBpbmdyZXNzIGhvc3QgJXEiLCBbaG9zdF0pCiAgICAgICAgfQo="
+                        "content": "YXBpVmVyc2lvbjogdGVtcGxhdGVzLmdhdGVrZWVwZXIuc2gvdjFiZXRhMQpraW5kOiBDb25zdHJhaW50VGVtcGxhdGUKbWV0YWRhdGE6CiAgbmFtZTogazhzcmVzdHJpY3RpbmdyZXNzaG9zdG5hbWUKICBhbm5vdGF0aW9uczoKICAgIGRlc2NyaXB0aW9uOiBSZXN0cmljdHMgaG9zdG5hbWUgZm9yIGluZ3Jlc3MKc3BlYzoKICBjcmQ6CiAgICBzcGVjOgogICAgICBuYW1lczoKICAgICAgICBraW5kOiBLOHNSZXN0cmljdEluZ3Jlc3NIb3N0bmFtZSAjIHRoaXMgbXVzdCBiZSB0aGUgc2FtZSBuYW1lIGFzIHRoZSBuYW1lIG9uIG1ldGFkYXRhLm5hbWUgKGxpbmUgNCkgICAgICAgICAgICAKICAgICAgdmFsaWRhdGlvbjoKICAgICAgICAjIFNjaGVtYSBmb3IgdGhlIGBwYXJhbWV0ZXJzYCBmaWVsZAogICAgICAgIG9wZW5BUElWM1NjaGVtYToKICAgICAgICAgIHByb3BlcnRpZXM6CiAgICAgICAgICAgIGFsbG93ZWRob3N0czoKICAgICAgICAgICAgICB0eXBlOiBhcnJheQogICAgICAgICAgICAgIGl0ZW1zOgogICAgICAgICAgICAgICAgdHlwZTogc3RyaW5nICAgICAgICAKICB0YXJnZXRzOgogICAgLSB0YXJnZXQ6IGFkbWlzc2lvbi5rOHMuZ2F0ZWtlZXBlci5zaAogICAgICByZWdvOiB8CiAgICAgICAgcGFja2FnZSBrOHNyZXN0cmljdGluZ3Jlc3Nob3N0bmFtZQoKICAgICAgICB2aW9sYXRpb25beyJtc2ciOiBtc2d9XSB7CiAgICAgICAgICBob3N0IDo9IGlucHV0LnJldmlldy5vYmplY3Quc3BlYy5ydWxlc1tfXS5ob3N0CiAgICAgICAgICBub3QgaW5wdXRfYWxsb3dlZF9ob3N0cyhob3N0KQogICAgICAgICAgbXNnIDo9IHNwcmludGYoImludmFsaWQgaW5ncmVzcyBob3N0ICVxIiwgW2hvc3RdKQogICAgICAgIH0KCiAgICAgICAgaW5wdXRfYWxsb3dlZF9ob3N0cyhmaWVsZCkgewogICAgICAgICAgZW5kc3dpdGgoZmllbGQsIGlucHV0LnBhcmFtZXRlcnMuYWxsb3dlZGhvc3RzW19dKQogICAgICAgIH0="
                     },
+                    "excludedNamespaces": "[parameters('excludedNamespaces')]",
                     "values": {
-                        "excludedNamespaces": "[parameters('excludedNamespaces')]"
+                        "allowedhosts": "[parameters('allowedhosts')]"
                     },
                     "apiGroups": [
                         "extensions", 

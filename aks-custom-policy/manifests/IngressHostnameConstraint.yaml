@@ -7,3 +7,5 @@ spec:
     kinds:
       - apiGroups: ["extensions", "networking.k8s.io"]
         kinds: ["Ingress"]
+  parameters:
+    allowedhosts: [".demoapp.com",".demoapp2.com"]        
