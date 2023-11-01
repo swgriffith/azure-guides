@@ -3,7 +3,7 @@
 Creating the second cluster is basically a repeat of the cluster creation steps above. In a real world scenario, you would just use a template to deploy and change the region target.
 
 ```bash
-SECONDARY_LOCATION=westus # Location 
+SECONDARY_LOCATION=westus3 # Location 
 SECONDARY_AKS_NAME=elastic-secondary
 SECONDARY_RG=$SECONDARY_AKS_NAME-$SECONDARY_LOCATION
 AKS_VNET_NAME=$SECONDARY_AKS_NAME-vnet # The VNET where AKS will reside
@@ -94,9 +94,9 @@ az aks get-credentials -n $SECONDARY_AKS_CLUSTER_NAME -g $SECONDARY_RG
 # validate nodes are running and spread across AZs
 kubectl get nodes
 NAME                                 STATUS   ROLES   AGE     VERSION
-aks-systempool-26459571-vmss000000   Ready    agent   7d15h   v1.23.5
-aks-systempool-26459571-vmss000001   Ready    agent   7d15h   v1.23.5
-aks-systempool-26459571-vmss000002   Ready    agent   7d15h   v1.23.5
+aks-systempool-26459571-vmss000000   Ready    agent   7d15h   v1.27.1
+aks-systempool-26459571-vmss000001   Ready    agent   7d15h   v1.27.1
+aks-systempool-26459571-vmss000002   Ready    agent   7d15h   v1.27.1
 
 # check the system nodes spread over availaiblity zones 
 kubectl describe nodes -l agentpool=systempool | grep -i topology.kubernetes.io/zone
@@ -168,12 +168,12 @@ kubectl get nodes -l dept=dev
 watch kubectl get nodes -l dept=dev
 
 NAME                               STATUS   ROLES   AGE     VERSION
-aks-espoolz1-21440163-vmss000000   Ready    agent   7d15h   v1.23.5
-aks-espoolz1-21440163-vmss000001   Ready    agent   7d15h   v1.23.5
-aks-espoolz2-14777997-vmss000000   Ready    agent   7d14h   v1.23.5
-aks-espoolz2-14777997-vmss000001   Ready    agent   7d14h   v1.23.5
-aks-espoolz3-54338334-vmss000000   Ready    agent   7d14h   v1.23.5
-aks-espoolz3-54338334-vmss000001   Ready    agent   7d14h   v1.23.5
+aks-espoolz1-21440163-vmss000000   Ready    agent   7d15h   v1.27.1
+aks-espoolz1-21440163-vmss000001   Ready    agent   7d15h   v1.27.1
+aks-espoolz2-14777997-vmss000000   Ready    agent   7d14h   v1.27.1
+aks-espoolz2-14777997-vmss000001   Ready    agent   7d14h   v1.27.1
+aks-espoolz3-54338334-vmss000000   Ready    agent   7d14h   v1.27.1
+aks-espoolz3-54338334-vmss000001   Ready    agent   7d14h   v1.27.1
 
 
 # Validate the zone distribution 
