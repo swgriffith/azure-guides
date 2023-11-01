@@ -330,9 +330,9 @@ EOF
 Now lets get the token and portal URL and check out our secondary instance.
 
 ```bash
-sa_secret=$(kubectl get serviceaccount k10-k10 -o jsonpath="{.secrets[0].name}" --namespace kasten-io)
-
-echo $(kubectl get secret $sa_secret --namespace kasten-io -ojsonpath="{.data.token}{'\n'}" | base64 --decode)
+# Get a temporary bearer token to be used to authenticate to the dashboard
+# Copy the output value for the next step
+kubectl --namespace kasten-io create token k10-k10 --duration=24h
 
 # Take the token and navigate to the URL output from the command below to login to the Kasten dashboard
 kastenip=$(kubectl get svc gateway-ext -n kasten-io -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -364,16 +364,6 @@ If you navigate to your primary dashboard you should see the multi-cluster user 
 ### Restore Elastic Search from the Primary export
 
 First we need to get the recieve string from the export in our primary cluster.
-
-> *Note:*
-> Due to an issue I havent yet worked out with restoring to tainted nodes, I had to run the following. I'd love a PR from someone that knows the solution to this issue.
-
-```bash
-# Remove the nodepool taints
-az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz1 --node-taints ""
-az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz2 --node-taints ""
-az aks nodepool update -g $SECONDARY_RG --cluster-name $SECONDARY_AKS_CLUSTER_NAME -n espoolz3 --node-taints ""
-```
 
 ```bash
 # Get the contexts
