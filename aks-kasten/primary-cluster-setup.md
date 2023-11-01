@@ -10,7 +10,7 @@ In the following, we'll set some variables for use throughout the setup. Feel fr
 > In the following I explicitly set the Kubernetes version to one supported by Kasten. You should review version support and set accordingly. You can review the supported versions [here](https://docs.kasten.io/latest/operating/support.html)
 
 ```bash
-PRIMARY_LOCATION=eastus2 # Location 
+PRIMARY_LOCATION=eastus # Location 
 PRIMARY_AKS_NAME=elastic-primary
 PRIMARY_RG=$PRIMARY_AKS_NAME-$PRIMARY_LOCATION
 AKS_VNET_NAME=$PRIMARY_AKS_NAME-vnet # The VNET where AKS will reside
@@ -24,8 +24,8 @@ NETWORK_PLUGIN=azure # use azure CNI
 NETWORK_POLICY=calico # use calico network policy
 SYSTEM_NODE_COUNT=3 # system node pool size (single pool with 3 nodes across AZs)
 USER_NODE_COUNT=2 # 3 node pools with 2 nodes each 
-NODES_SKU=Standard_D4as_v4 #node vm type 
-K8S_VERSION=1.23.12
+NODES_SKU=Standard_DS4_v2 #node vm type 
+K8S_VERSION=1.27.1
 SYSTEM_POOL_NAME=systempool
 STORAGE_POOL_ZONE1_NAME=espoolz1
 STORAGE_POOL_ZONE2_NAME=espoolz2
@@ -128,9 +128,9 @@ aks-systempool-26459571-vmss000002   Ready    agent   7d15h   v1.23.5
 # check the system nodes spread over availaiblity zones 
 kubectl describe nodes -l agentpool=systempool | grep -i topology.kubernetes.io/zone
 
-                    topology.kubernetes.io/zone=westus2-1
-                    topology.kubernetes.io/zone=westus2-2
-                    topology.kubernetes.io/zone=westus2-3
+                    topology.kubernetes.io/zone=eastus-1
+                    topology.kubernetes.io/zone=eastus-2
+                    topology.kubernetes.io/zone=eastus-3
 ```
 
 ### Add Additional Nodepools
@@ -272,21 +272,22 @@ Lets validate our deployment and insert some data
 
 ```bash
 # Get the version 
+# This may take some timeo n the initial request
 curl -XGET "http://$esip:9200"
 
 # Sample Output
 {
-  "name" : "elasticsearch-v1-coordinating-1",
+  "name" : "elasticsearch-v1-coordinating-2",
   "cluster_name" : "elastic",
-  "cluster_uuid" : "kz5rkH_2T9W6u4sUPZE2oQ",
+  "cluster_uuid" : "tlBV4CkaQHWa2usLTzlTgw",
   "version" : {
-    "number" : "8.2.0",
+    "number" : "8.9.0",
     "build_flavor" : "default",
     "build_type" : "tar",
-    "build_hash" : "b174af62e8dd9f4ac4d25875e9381ffe2b9282c5",
-    "build_date" : "2022-04-20T10:35:10.180408517Z",
+    "build_hash" : "8aa461beb06aa0417a231c345a1b8c38fb498a0d",
+    "build_date" : "2023-07-19T14:43:58.555259655Z",
     "build_snapshot" : false,
-    "lucene_version" : "9.1.0",
+    "lucene_version" : "9.7.0",
     "minimum_wire_compatibility_version" : "7.17.0",
     "minimum_index_compatibility_version" : "7.0.0"
   },
@@ -304,8 +305,8 @@ curl "http://$esip:9200/_cluster/health?pretty"
   "timed_out" : false,
   "number_of_nodes" : 18,
   "number_of_data_nodes" : 6,
-  "active_primary_shards" : 5,
-  "active_shards" : 10,
+  "active_primary_shards" : 0,
+  "active_shards" : 0,
   "relocating_shards" : 0,
   "initializing_shards" : 0,
   "unassigned_shards" : 0,
@@ -329,7 +330,7 @@ curl -X PUT "$esip:9200/customer/_doc/2?pretty" -H 'Content-Type: application/js
 curl "$esip:9200/customer/_search?q=*&pretty"
 
 {
-  "took" : 58,
+  "took" : 139,
   "timed_out" : false,
   "_shards" : {
     "total" : 1,
@@ -339,7 +340,7 @@ curl "$esip:9200/customer/_search?q=*&pretty"
   },
   "hits" : {
     "total" : {
-      "value" : 1,
+      "value" : 2,
       "relation" : "eq"
     },
     "max_score" : 1.0,
@@ -350,6 +351,20 @@ curl "$esip:9200/customer/_search?q=*&pretty"
         "_score" : 1.0,
         "_source" : {
           "name" : "kubecon",
+          "settings" : {
+            "index" : {
+              "number_of_shards" : 3,
+              "number_of_replicas" : 1
+            }
+          }
+        }
+      },
+      {
+        "_index" : "customer",
+        "_id" : "2",
+        "_score" : 1.0,
+        "_source" : {
+          "name" : "kasten",
           "settings" : {
             "index" : {
               "number_of_shards" : 3,
@@ -434,12 +449,14 @@ helm install k10 kasten/k10 --namespace=kasten-io \
 # Validate 
 kubectl get pods --namespace kasten-io
 
-sa_secret=$(kubectl get serviceaccount k10-k10 -o jsonpath="{.secrets[0].name}" --namespace kasten-io)
-
-echo $(kubectl get secret $sa_secret --namespace kasten-io -ojsonpath="{.data.token}{'\n'}" | base64 --decode)
+# Get a temporary bearer token to be used to authenticate to the dashboard
+# Copy the output value for the next step
+kubectl --namespace kasten-io create token k10-k10 --duration=24h
 
 # Take the token and navigate to the URL output from the command below to login to the Kasten dashboard
 echo "http://$(kubectl get svc gateway-ext -n kasten-io -o jsonpath='{.status.loadBalancer.ingress[0].ip}')/k10/#/"
+
+# Answer the questions in the dashboard login
 ```
 
 ### Create a storage account to ship the backed up files from Kasten to it 

@@ -3,7 +3,7 @@
 Creating the second cluster is basically a repeat of the cluster creation steps above. In a real world scenario, you would just use a template to deploy and change the region target.
 
 ```bash
-SECONDARY_LOCATION=westus2 # Location 
+SECONDARY_LOCATION=westus # Location 
 SECONDARY_AKS_NAME=elastic-secondary
 SECONDARY_RG=$SECONDARY_AKS_NAME-$SECONDARY_LOCATION
 AKS_VNET_NAME=$SECONDARY_AKS_NAME-vnet # The VNET where AKS will reside
@@ -17,8 +17,8 @@ NETWORK_PLUGIN=azure # use azure CNI
 NETWORK_POLICY=calico # use calico network policy
 SYSTEM_NODE_COUNT=3 # system node pool size (single pool with 3 nodes across AZs)
 USER_NODE_COUNT=2 # 3 node pools with 2 nodes each 
-NODES_SKU=Standard_D4as_v4 #node vm type 
-K8S_VERSION=1.23.12
+NODES_SKU=Standard_DS4_v2 #node vm type 
+K8S_VERSION=1.27.1
 SYSTEM_POOL_NAME=systempool
 STORAGE_POOL_ZONE1_NAME=espoolz1
 STORAGE_POOL_ZONE2_NAME=espoolz2
