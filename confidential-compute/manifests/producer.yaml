@@ -1,0 +1,30 @@
+# --------------------------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for license information.
+# --------------------------------------------------------------------------------------------
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-producer
+  namespace: kafka
+spec:
+  containers:
+    - image: "mcr.microsoft.com/acc/samples/kafka/producer:1.0"
+      name: kafka-producer
+      command:
+        - /produce
+      env:
+        - name: TOPIC
+          value: kafka-demo-topic
+        - name: MSG
+          value: "Azure Confidential Computing"
+        - name: PUBKEY
+          value: |-
+            -----BEGIN PUBLIC KEY-----
+            MIIBojAN***AE=
+            -----END PUBLIC KEY-----
+      resources:
+        limits:
+          memory: 1Gi
+          cpu: 200m
