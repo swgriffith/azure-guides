@@ -201,9 +201,11 @@ kubectl logs -f kafka-golang-consumer -c kafka-golang-consumer -n kafka
 # Now you can get the public IP and check out the web app
 kubectl get svc consumer -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
-<br>
-<br>
+
+<BR>
+
 ![webapp](./images/webapp.jpg)
+
 
 ## Conclusion
 
