@@ -2,6 +2,10 @@
 
 The following walk through demonstrates the setup for an AKS cluster with Confidential Containers, along with a kafka demo app.
 
+This guide is based on the following docs:
+* [Confidential Container Demos](https://github.com/microsoft/confidential-container-demos/tree/main/kafka#step-by-step-example)
+* [AKS Confidential Container Docs](https://learn.microsoft.com/en-us/azure/aks/deploy-confidential-containers-default-policy)
+
 ## Feature Registration
 
 This example relies on enabling the Kata Confidential Containers feature, which is currently in preview as well as enabling the aks-preview and confcom Azure CLI extensions.
