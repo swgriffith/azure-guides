@@ -29,7 +29,7 @@ spec:
         - name: SkrClientKID
           value: kafka-encryption-demo
         - name: SkrClientMAAEndpoint
-          value: sharedeus2.eus2.test.attest.azure.net
+          value: sharedeus.eus.attest.azure.net
         - name: SkrClientAKVEndpoint
           value: ""
         - name: TOPIC
