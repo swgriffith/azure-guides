@@ -64,6 +64,8 @@ az aks create \
 -g $RG \
 -n $CLUSTER_NAME \
 --vnet-subnet-id $SUBNET_ID \
+--enable-oidc-issuer \
+--enable-workload-identity \
 --enable-managed-identity
 
 # Get the cluster credentials
@@ -72,15 +74,19 @@ az aks get-credentials \
 -n $CLUSTER_NAME 
 ```
 
-### Setup Access for the Kubelet Identity
+### Setup with Workload Identity
 
-As mentioned above, we'll use the cluster's managed kubelet identity to access the private zone. For this the kubelet identity will need read access against the resource group containing private DNS zone, as well as contributor rights on the private zone itself.
+Azure Workload Identity for Kubernetes enables the finest grained control of the user that will be managing the DNS records, so we'll setup using Workload Identity.
 
 ```bash
-# Get the kubelet managed identity
-KUBELET_IDENTITY=$(az aks show -g $RG -n $CLUSTER_NAME \
---query "identityProfile.kubeletidentity.objectId" \
---output tsv)
+# Get the OIDC Issuer URL
+export AKS_OIDC_ISSUER="$(az aks show -n $CLUSTER_NAME -g $RG --query "oidcIssuerProfile.issuerUrl" -otsv)"
+
+# Create the managed identity
+az identity create --name external-dns-identity --resource-group $RG --location $LOC
+
+# Get identity client ID
+export USER_ASSIGNED_CLIENT_ID=$(az identity show --resource-group $RG --name external-dns-identity --query 'clientId' -o tsv)
 
 # Get the resource group ID
 RG_ID=$(az group show -n $RG -o tsv --query id)
@@ -91,19 +97,57 @@ DNS_ID=$(az network private-dns zone show --name $AZURE_DNS_ZONE \
 
 # Give the kubelet identity DNS Contributor rights
 az role assignment create \
---assignee $KUBELET_IDENTITY \
+--assignee $USER_ASSIGNED_CLIENT_ID \
 --role "Private DNS Zone Contributor" \
 --scope "$DNS_ID"
 
 az role assignment create \
 --role "Reader" \
---assignee $KUBELET_IDENTITY \
+--assignee $USER_ASSIGNED_CLIENT_ID \
 --scope $RG_ID
+
+# Federate the identity
+az identity federated-credential create \
+--name external-dns-identity \
+--identity-name external-dns-identity \
+--resource-group $RG \
+--issuer ${AKS_OIDC_ISSUER} \
+--subject system:serviceaccount:default:external-dns
+
 ```
+
 
 ### Install External DNS
 
 We'll install External DNS using it's helm chart, setting the values to ensure we're using the Azure Private DNS provider and pass in the managed identity details.
+
+First, lets create the values file.
+
+```bash
+cat <<EOF > values.yaml
+fullnameOverride: external-dns
+
+serviceAccount:
+  annotations:
+    azure.workload.identity/client-id: ${USER_ASSIGNED_CLIENT_ID}
+
+podLabels:
+  azure.workload.identity/use: "true"
+
+provider: azure-private-dns
+
+azure:
+  resourceGroup: "${RG}"
+  tenantId: "${TENANT_ID}"
+  subscriptionId: "${SUB_ID}"
+  useWorkloadIdentityExtension: true
+
+logLevel: debug
+
+EOF
+```
+
+Run the helm install.
 
 ```bash
 # Add the helm repo
@@ -113,16 +157,8 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update bitnami
 
 # Install external dns
-helm install external-dns bitnami/external-dns \
---set "provider=azure-private-dns" \
---set "azure.resourceGroup=$RG" \
---set "azure.tenantId=$TENANT_ID" \
---set "azure.subscriptionId=$SUB_ID" \
---set "azure.useManagedIdentityExtension=true" \
---set "logLevel=debug" \
---set "domainFilters={$AZURE_DNS_ZONE}" \
---set "txtOwnerId=external-dns" \
---set "sources={ingress,service,pod}"
+helm install external-dns bitnami/external-dns -f values.yaml
+
 ```
 
 ### Test External DNS
@@ -159,8 +195,9 @@ kind: Service
 metadata:
   name: nginx-svc
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: hello.griffdemo123.com
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    external-dns.alpha.kubernetes.io/hostname: hello.griffdemo123.com
+    external-dns.alpha.kubernetes.io/internal-hostname: hello-clusterip.griffdemo123.com
 spec:
   ports:
   - port: 80
@@ -185,12 +222,29 @@ kubectl logs -f -l app.kubernetes.io/instance=external-dns
 Show the records created.
 
 ```bash
-az network private-dns record-set a list -g $RG -z $AZURE_DNS_ZONE -o table
+az network private-dns record-set a list -g $RG -z $AZURE_DNS_ZONE -o yaml
 
 # SAMPLE OUTPUT
-Name    ResourceGroup       Ttl    Type    AutoRegistered    Metadata
-------  ------------------  -----  ------  ----------------  ----------
-hello   ephexternaldnsdemo  300    A       False
+- aRecords:
+  - ipv4Address: 10.2.0.7
+  etag: 1f85f096-4036-408f-aa54-2d58d0523a96
+  fqdn: hello.griffdemo123.com.
+  id: /subscriptions/XXXXXX-XXXX/resourceGroups/ephexternaldnsdemo/providers/Microsoft.Network/privateDnsZones/griffdemo123.com/A/hello
+  isAutoRegistered: false
+  name: hello
+  resourceGroup: ephexternaldnsdemo
+  ttl: 300
+  type: Microsoft.Network/privateDnsZones/A
+- aRecords:
+  - ipv4Address: 10.0.11.167
+  etag: bf268fab-6678-4ae4-ae50-0cf49b314a0c
+  fqdn: hello-clusterip.griffdemo123.com.
+  id: /subscriptions/XXXXXX-XXXX/resourceGroups/ephexternaldnsdemo/providers/Microsoft.Network/privateDnsZones/griffdemo123.com/A/hello-clusterip
+  isAutoRegistered: false
+  name: hello-clusterip
+  resourceGroup: ephexternaldnsdemo
+  ttl: 300
+  type: Microsoft.Network/privateDnsZones/A
 ```
 
 ### Create a Record for a Pod IP
