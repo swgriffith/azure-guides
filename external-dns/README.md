@@ -56,7 +56,7 @@ az network private-dns link vnet create \
 
 ### Create the AKS Cluster
 
-We'll create the AKS cluster in the above created subnet, and enable managed identity. We'll use the cluster 'kubelet' managed identity to access the private zone.
+We'll create the AKS cluster in the above created subnet, and enable the flags for Workload Identity Support (i.e. OIDC Issuer and Workload Identity). 
 
 ```bash
 # Create the AKS Cluster
