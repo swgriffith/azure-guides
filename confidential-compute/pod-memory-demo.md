@@ -266,7 +266,7 @@ PID=<pid from above>
 MEMORY_ADDR=<memory address from containerlog output>
 
 # Now to dump the python app memory at the memory address of our secret
-dd bs=1 skip="$MEMORY_ADDR" count=6000 if="/proc/$PID/mem" |  hexdump -C
+dd bs=1 skip="$MEMORY_ADDR" count=200 if="/proc/$PID/mem" |  hexdump -C
 ```
 
 You should have seen the secret value in the memory dump. Now lets protect it with kata.
