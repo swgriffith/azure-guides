@@ -32,7 +32,7 @@ az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 ### Set up the identity 
 
-In order to federate a managed identity with a Kubernetes Service Account we need to get the AKS OIDC Issure URL, create the Managed Identity and Service Account and then create the federation.
+In order to federate a managed identity with a Kubernetes Service Account we need to get the AKS OIDC Issuer URL, create the Managed Identity and Service Account and then create the federation.
 
 ```bash
 # Get the OIDC Issuer URL
@@ -182,7 +182,7 @@ kubectl exec -it $POD_NAME -- /bin/sh -c 'cat /mnt/secrets-store/Secret'
 
 ## Test Secret Update
 
-Secrets do need to be updated from time to time. There are several strategies to manage this update. Since Key Vault Secrets have a version ID, you can add a new version and then update the secret provider class with the new version. You could do the same if you were using the SDK directly from your application without the CSI driver. You can also just update the secret value directly, without the provider class knowing the version number, and let the value automatically sync. The approach you take will depend on the secret rotation behavior that works best for your application. Regardless, however, you will still likely need to reload your application and your deployment to get the updated secret.
+Secrets do need to be updated from time to time. There are several strategies to manage this update. Since Azure Key Vault Secrets have a version ID, you can add a new version and then update the secret provider class with the new version. You could do the same if you were using the SDK directly from your application without the CSI driver. You can also just update the secret value directly, without the provider class knowing the version number, and let the value automatically sync. The approach you choose will depend on the secret rotation behavior that works best for your application. Regardless, you will still need to reload your application and your deployment to get the updated secret.
 
 Let's check the default behavior when you update a secret value. We'll update the secret and then watch the cluster and deployment behavior.
 
@@ -219,9 +219,9 @@ kubectl exec -it $POD_NAME -- /bin/sh -c 'cat /mnt/secrets-store/Secret'
 
 ```
 
-So, while the mounted volume got the updated secret value, the environment variable did not. For that environment variable to reload something has to be watching the secret and tell it to reload. You'll likely see the same behavior within your running application. If you've loaded a secret into memory and the value is updated, even within the pod iteself, the application will need to load the new value into the active process.
+While the mounted volume received the updated secret value, the environment variable did not automatically update itself. For that environment variable to reload something, it has to be watching the secret and signla it self to reload. You'll likely see the same behavior within your running application. If you've loaded a secret into memory and the value is updated, even within the pod itself, the application will need to load the new value into the active process.
 
-There are several ways to handle this as well. Most commonly, you would have a CI/CD pipeline tied to the secret update and that process would trigger a reload of the deployment, either by updating a value in the deployment, like a secret version number, or by directly triggering a deployment restart (kubectl rollout restart deployment). 
+There are several ways to handle this as well. Most commonly, you would have a CI/CD pipeline tied to the secret update and that process would trigger a reload of the deployment, either by updating a value in the deployment, like a secret version number, or by directly triggering a deployment restart (```kubectl rollout restart deployment/<deployment-name>```). 
 
 ## Reloading values in deployments
 
@@ -242,9 +242,9 @@ kubectl exec -it $POD_NAME -- /bin/sh -c 'echo $SYNCED_SECRET'
 kubectl exec -it $POD_NAME -- /bin/sh -c 'cat /mnt/secrets-store/Secret'
 ```
 
-You should now see both the environment variable and the mounted volume have been updated. You can repeat the process of updating the secret in Key Vault and then running the rollout restart to test further.
+You should now see that both the environment variable and the mounted volume have been updated. You can repeat the process of updating the secret in Azure Key Vault and then running the rollout restart to test further.
 
-If, however, you want to automatically update the deployment when a secret change event occurs, there are solution for that as well. Lets test with [Reloader](https://github.com/stakater/Reloader). 
+If, however, you want to automatically update the deployment when a secret change event occurs, there are solutions for that as well. Lets test with [Reloader](https://github.com/stakater/Reloader). 
 
 We'll install Reloader, delete the deployment and then redeploy with the Reloader annotation for our secret.
 
@@ -317,7 +317,7 @@ kubectl exec -it $POD_NAME -- /bin/sh -c 'echo $SYNCED_SECRET'
 kubectl exec -it $POD_NAME -- /bin/sh -c 'cat /mnt/secrets-store/Secret'
 ```
 
-Now that we've redployed with Reloader enabled, we can update the secret. It will take a minute or so for Reloader to see the change and then it will update reload the deployment.
+Now that we've redployed with Reloader enabled, we can update the secret. It will take a minute or so for Reloader to notice the change and then it will update and reload the deployment.
 
 ```bash
 # Update the secret
