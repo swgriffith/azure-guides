@@ -28,17 +28,19 @@ az provider register --namespace Microsoft.ContainerService
 ### Create the VNet and Cluster
 
 ```bash
-RG=EphAKSBackupLab
+RG=EphAKSBackupLab6
 LOC=eastus
-CLUSTER_NAME=aksbackuplab
-VNET_NAME=aksbackuplab
+CLUSTER_NAME=aksbackuplab6
+VNET_NAME=aksbackuplab5
 ADMIN_GROUP_ID=c88a3ffc-8e42-4108-9026-ba1073b66126
-STORAGE_ACCT_NAME=griffaksbackup
+STORAGE_ACCT_NAME=griffaksbackup6
 SUBSCRIPTION_ID=$(az account show -o tsv --query id)
-BACKUP_VAULT_NAME=aksdemobackupvault
+BACKUP_VAULT_NAME=aksdemobackupvault6
 
 # Create Resource Group 
 az group create -n $RG -l $LOC
+
+RG_ID=$(az group show -n $RG -o tsv --query id)
 
 # Create Vnet
 az network vnet create \
@@ -63,6 +65,10 @@ az aks create \
 --network-plugin azure \
 --network-plugin-mode overlay \
 --vnet-subnet-id $VNET_SUBNET_ID
+
+AKS_CLUSTER_ID=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query id)
+AKS_CLUSTER_MI=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query identity.principalId)
+AKS_CLUSTER_MC_RG=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query nodeResourceGroup)
 ```
 
 ### Create the storage account
@@ -108,13 +114,126 @@ AKSBACKUP_IDENTITY=$(az k8s-extension show --name azure-aks-backup --cluster-nam
 az role assignment create \
 --assignee-object-id $AKSBACKUP_IDENTITY \
 --role 'Storage Account Contributor' \
---scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCT_NAME}
+--scope $STORAGE_ACCT_ID
 
-az dataprotection backup-vault create --type "None" --location $LOC --azure-monitor-alerts-for-job-failures "Enabled" --storage-setting "[{type:'LocallyRedundant',datastore-type:'VaultStore'}]" --resource-group $RG --vault-name $BACKUP_VAULT_NAME
+az dataprotection backup-vault create \
+--resource-group $RG \
+--vault-name $BACKUP_VAULT_NAME \
+--location $LOC \
+--type SystemAssigned \
+--storage-settings datastore-type="VaultStore" type="LocallyRedundant"
+
+BACKUP_VAULT_ID=$(az dataprotection backup-vault show -g $RG --vault-name $BACKUP_VAULT_NAME -o tsv --query id)
 
 az aks trustedaccess rolebinding create \
 -g $RG \
 --cluster-name $CLUSTER_NAME \
 -n aksdemobinding \
 --source-resource-id $(az dataprotection backup-vault show -g $RG -v $BACKUP_VAULT_NAME --query id -o tsv) --roles Microsoft.DataProtection/backupVaults/backup-operator
+
+# Get the backup vault system assigned managed identity ID
+BACKUP_VAULT_MI=$(az dataprotection backup-vault show -g $RG -v $BACKUP_VAULT_NAME -o tsv --query identity.principalId)
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Reader' \
+--scope $AKS_CLUSTER_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Reader' \
+--scope $RG_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Storage Blob Data Reader' \
+--scope $STORAGE_ACCT_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Storage Account Contributor' \
+--scope $STORAGE_ACCT_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Contributor' \
+--scope $STORAGE_ACCT_ID
+
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Storage Account Contributor' \
+--scope $STORAGE_ACCT_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Data Operator for Managed Disks' \
+--scope $RG_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Disk Snapshot Contributor' \
+--scope $RG_ID
+
+az role assignment create \
+--assignee-object-id $BACKUP_VAULT_MI \
+--role 'Disk Backup Reader' \
+--scope $RG_ID
+
+az role assignment create \
+--assignee-object-id $AKS_CLUSTER_MI \
+--role 'Contributor' \
+--scope $RG_ID
+
+az role assignment create \
+--assignee-object-id $AKSBACKUP_IDENTITY \
+--role 'Storage Account Contributor' \
+--scope $STORAGE_ACCT_ID
+
+```
+
+### Create and apply a backup policy
+
+```bash
+az dataprotection backup-policy get-default-policy-template --datasource-type AzureKubernetesService -o json > akspolicy.json
+
+az dataprotection backup-policy create -g $RG --vault-name $BACKUP_VAULT_NAME -n demopolicy --policy akspolicy.json
+
+BACKUP_POLICY_ID=$(az dataprotection backup-policy show -g $RG --vault-name $BACKUP_VAULT_NAME -n demopolicy -o tsv --query id)
+
+az dataprotection backup-instance initialize-backupconfig --datasource-type AzureKubernetesService -o json > aksbackupconfig.json
+
+az dataprotection backup-instance initialize \
+--datasource-id $AKS_CLUSTER_ID \
+--datasource-location $LOC \
+--datasource-type AzureKubernetesService \
+--policy-id $BACKUP_POLICY_ID \
+--backup-configuration ./aksbackupconfig.json \
+--friendly-name ecommercebackup \
+--snapshot-resource-group-name $RG -o json > backupinstance.json
+
+
+az dataprotection backup-instance validate-for-backup \
+--backup-instance ./backupinstance.json \
+--ids $BACKUP_VAULT_ID
+
+az dataprotection backup-instance update-msi-permissions -y \
+--datasource-type AzureKubernetesService \
+--operation Backup \
+--permissions-scope ResourceGroup \
+--vault-name $BACKUP_VAULT_NAME \
+--resource-group $RG \
+--backup-instance backupinstance.json
+
+az dataprotection backup-instance create \
+--backup-instance  backupinstance.json --resource-group $RG --vault-name $BACKUP_VAULT_NAME
+
+BACKUP_INSTANCE_ID=$(az dataprotection backup-instance list-from-resourcegraph --datasource-type AzureKubernetesService --datasource-id $AKS_CLUSTER_ID --query '[0].id' -o tsv)
+
+az dataprotection backup-instance list-from-resourcegraph \
+--datasource-type AzureKubernetesService \
+--datasource-id $AKS_CLUSTER_ID -o yaml --query aksAssignedIdentity.id
+
+az dataprotection backup-instance adhoc-backup --rule-name "Default" --ids $BACKUP_INSTANCE_ID 
+
 ```
