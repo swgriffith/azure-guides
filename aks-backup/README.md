@@ -28,7 +28,7 @@ az provider register --namespace Microsoft.ContainerService
 ### Create the VNet and Cluster
 
 ```bash
-RG=EphAKSBackup
+RG=EphAKSBackupLab
 LOC=eastus
 CLUSTER_NAME=aksbackuplab
 VNET_NAME=aksbackuplab
