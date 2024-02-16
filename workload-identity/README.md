@@ -189,7 +189,7 @@ Build the image. I'll create an Azure Container Registry and build there, and th
 az acr create -g $RG -n $ACR_NAME --sku Standard
 
 # Build the image
-az acr build -t wi-kv-test -r $ACR_NAME .
+az acr build -t wi-kv-test -r $ACR_NAME -g $RG .
 
 # Link the ACR to the AKS cluster
 az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME
