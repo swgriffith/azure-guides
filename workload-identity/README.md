@@ -93,7 +93,7 @@ az keyvault create --name $KEY_VAULT_NAME --resource-group $RG --location $LOC
 az keyvault secret set --vault-name $KEY_VAULT_NAME --name "Secret" --value "Hello"
 
 # Grant access to the secret for the managed identity
-az keyvault set-policy --name $KEY_VAULT_NAME --secret-permissions get --spn "${USER_ASSIGNED_CLIENT_ID}"
+az keyvault set-policy --name $KEY_VAULT_NAME -g $RG --secret-permissions get --spn "${USER_ASSIGNED_CLIENT_ID}"
 
 # Get the version ID
 az keyvault secret show --vault-name $KEY_VAULT_NAME --name "Secret" -o tsv --query id
