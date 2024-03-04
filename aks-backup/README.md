@@ -320,12 +320,9 @@ az dataprotection backup-instance validate-for-backup \
 az dataprotection backup-instance create \
 --backup-instance  backupinstance.json --resource-group $RG --vault-name $BACKUP_VAULT_NAME
 
-# BACKUP_INSTANCE_ID=$(az dataprotection backup-instance list-from-resourcegraph --datasource-type AzureKubernetesService --datasource-id $AKS_CLUSTER_ID --query '[0].id' -o tsv)
+# Get the backup instance ID
+BACKUP_INSTANCE_ID=$(az dataprotection backup-instance list-from-resourcegraph --datasource-type AzureKubernetesService --datasource-id $AKS_CLUSTER_ID --query '[0].id' -o tsv)
 
-# az dataprotection backup-instance list-from-resourcegraph \
-# --datasource-type AzureKubernetesService \
-# --datasource-id $AKS_CLUSTER_ID -o yaml --query aksAssignedIdentity.id
-
-# az dataprotection backup-instance adhoc-backup --name "pleasework" --rule-name "Default" --ids $BACKUP_INSTANCE_ID 
-# az dataprotection backup-instance adhoc-backup --ids $BACKUP_INSTANCE_ID 
+# Trigger the adhoc backup
+az dataprotection backup-instance adhoc-backup --rule-name "BackupHourly" --ids $BACKUP_INSTANCE_ID  --retention-tag-override "Default"
 ```
