@@ -131,3 +131,5 @@ az aks get-credentials -g $RG -n kubenet
 kubectl apply -f deployment.yaml
 kubectl get nodes,svc,pods -o wide
 ```
+
+![Kubenet](./static/kubenet.jpg)
