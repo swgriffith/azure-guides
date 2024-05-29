@@ -75,9 +75,11 @@ kubectl expose deployment test --type=LoadBalancer --port=8080 -n testns
 
 For this demo, we will create a service account to access the cluster. We'll add this service account to an Entra ID cluster users group and then we'll log in as that user. 
 
+>*NOTE:* I'm using the jq cli tool to query json data from the clustersp.json file we create. If you dont have jq, you can just set these vaules manually from the file output.
+
 ```bash
 # Create a service principal
-az ad sp create-for-rbac --skip-assignment -o json> clustersp.json
+az ad sp create-for-rbac --skip-assignment -o json > clustersp.json
 
 # Set some variables for the service principal ID and password 
 SP_ID=$(cat clustersp.json|jq -r .appId)
