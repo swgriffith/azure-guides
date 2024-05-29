@@ -173,7 +173,7 @@ kubectl get serviceaccounts -n testns
 kubectl run test --image=nginx
 ```
 
-You can also play around with the [kubectl auth can-i]() to check your access.
+You can also play around with the [kubectl auth can-i](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_auth/kubectl_auth_can-i/) to check your access.
 
 ```bash
 # Examples
