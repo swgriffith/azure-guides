@@ -34,6 +34,8 @@ az aks create -g $RG -n $CLUSTER_NAME \
 --enable-oidc-issuer \
 --enable-workload-identity
 
+az aks get-credentials -g $RG -n $CLUSTER_NAME
+
 az acr create -g $RG -n $ACR_NAME --sku Standard
 
 az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME
@@ -44,6 +46,7 @@ SCOPE="/subscriptions/${SUBSCRIPTION}/resourceGroups/${RG}"
 az policy assignment create --name 'deploy-trustedimages' --policy-set-definition 'af28bf8b-c669-4dd3-9137-1e68fdc61bd6' --display-name 'Audit deployment with unsigned container images' --scope ${SCOPE} --mi-system-assigned --role Contributor --identity-scope ${SCOPE} --location ${LOC}
 
 MC_RESOURCE_GROUP=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query nodeResourceGroup)
+IDENTITY_NAME="azurepolicy-${CLUSTER_NAME}"
 
 export IDENTITY_OBJECT_ID="$(az identity show --name "azurepolicy-${CLUSTER_NAME}" --resource-group "${MC_RESOURCE_GROUP}" --query 'principalId' -otsv)"
 export IDENTITY_CLIENT_ID=$(az identity show --name "azurepolicy-${CLUSTER_NAME}" --resource-group ${MC_RESOURCE_GROUP} --query 'clientId' -o tsv)
@@ -62,7 +65,7 @@ export AKS_OIDC_ISSUER="$(az aks show -n ${CLUSTER_NAME} -g ${RG} --query "oidcI
 az identity federated-credential create \
 --name ratify-federated-credential \
 --identity-name "${IDENTITY_NAME}" \
---resource-group "${RG}" \
+--resource-group "${MC_RESOURCE_GROUP}" \
 --issuer "${AKS_OIDC_ISSUER}" \
 --subject system:serviceaccount:gatekeeper-system:ratify-admin
 
@@ -85,6 +88,10 @@ CERT_PATH=./${CERT_NAME}.pem
 # Set the access policy for yourself to create and get certs
 USER_ID=$(az ad signed-in-user show --query id -o tsv)
 az keyvault set-policy -n $AKV_NAME --certificate-permissions create get --key-permissions sign --object-id $USER_ID
+
+az keyvault set-policy --name ${AKV_NAME} \
+--secret-permissions get \
+--object-id ${IDENTITY_OBJECT_ID}
 
 # Create the Key Vault certificate policy file
 cat <<EOF > ./brooklyn_io_policy.json
@@ -134,4 +141,145 @@ notation sign --signature-format cose --id $KEY_ID --plugin azure-kv --plugin-co
 
 # Confirm the signature
 notation ls $ACR_NAME.azurecr.io/nginx@$IMAGE_SHA
+```
+
+
+### Apply the policy
+
+
+```bash
+cat << EOF > ratify-policy-template.yaml
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: ratifyverification
+spec:
+  crd:
+    spec:
+      names:
+        kind: RatifyVerification
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package ratifyverification
+        
+        # Get data from Ratify
+        remote_data := response {
+          images := [img | img = input.review.object.spec.containers[_].image]
+          response := external_data({"provider": "ratify-provider", "keys": images})
+        }
+
+        # Base Gatekeeper violation
+        violation[{"msg": msg}] {
+          general_violation[{"result": msg}]
+        }
+        
+        # Check if there are any system errors
+        general_violation[{"result": result}] {
+          err := remote_data.system_error
+          err != ""
+          result := sprintf("System error calling external data provider: %s", [err])
+        }
+        
+        # Check if there are errors for any of the images
+        general_violation[{"result": result}] {
+          count(remote_data.errors) > 0
+          result := sprintf("Error validating one or more images: %s", remote_data.errors)
+        }
+        
+        # Check if the success criteria is true
+        general_violation[{"result": result}] {
+          subject_validation := remote_data.responses[_]
+          subject_validation[1].isSuccess == false
+          result := sprintf("Subject failed verification: %s", [subject_validation[0]])
+        }
+EOF
+
+cat << EOF > ratify-policy-constraint.yaml
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RatifyVerification
+metadata:
+  name: ratify-constraint
+spec:
+  enforcementAction: deny
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["default"]
+EOF
+
+POLICY_TEMPLATE=$(cat ratify-policy-template.yaml|base64)
+POLICY_CONSTRAINT=$(cat ratify-policy-constraint.yaml|base64)
+
+cat << EOF > policy-definition.json
+{
+    "properties": {
+        "displayName": "Image Verification",
+        "policyType": "Custom",
+        "mode": "Microsoft.Kubernetes.Data",
+        "description": "Only allow signed images",
+        "metadata": {
+            "version": "1.0.0",
+            "category": "Kubernetes"
+        },
+        "parameters": {
+            "effect": {
+                "type": "String",
+                "metadata": {
+                    "displayName": "Effect",
+                    "description": "Enable or disable the execution of the policy"
+                },
+                "allowedValues": [
+                    "audit",
+                    "deny",
+                    "disabled"
+                ],
+                "defaultValue": "audit"
+            },
+            "excludedNamespaces": {
+                "type": "Array",
+                "metadata": {
+                    "displayName": "Namespace exclusions",
+                    "description": "List of Kubernetes namespaces to exclude from policy evaluation. Providing a value for this parameter is optional."
+                },
+                "defaultValue": [
+                    "kube-system",
+                    "gatekeeper-system",
+                    "azure-arc"
+                ]
+            }
+        },
+        "policyRule": {
+            "if": {
+                "field": "type",
+                "in": [
+                    "AKS Engine",
+                    "Microsoft.Kubernetes/connectedClusters",
+                    "Microsoft.ContainerService/managedClusters"
+                ]
+            },
+            "then": {
+                "effect": "[parameters('effect')]",
+                "details": {
+                    "templateInfo": {
+                        "sourceType": "Base64Encoded",
+                        "content": "${POLICY_TEMPLATE}"
+                    },
+                    "excludedNamespaces": "[parameters('excludedNamespaces')]",
+                    "values": {
+                    },
+                    "apiGroups": [
+                        "extensions",
+                        "networking.k8s.io"
+                    ],
+                    "kinds": [
+                        "Pod"
+                    ]
+                }
+            }
+        }
+    }
+}
+EOF
 ```
