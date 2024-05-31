@@ -58,6 +58,13 @@ az role assignment create \
 --role acrpull \
 --scope subscriptions/${SUBSCRIPTION}/resourceGroups/${RG}/providers/Microsoft.ContainerRegistry/registries/${ACR_NAME}
 
+az role assignment create \
+--assignee-object-id ${IDENTITY_OBJECT_ID} \
+--role AcrImageSigner \
+--scope subscriptions/${SUBSCRIPTION}/resourceGroups/${RG}/providers/Microsoft.ContainerRegistry/registries/${ACR_NAME}
+
+
+
 # Get the OIDC Issuer URL
 export AKS_OIDC_ISSUER="$(az aks show -n ${CLUSTER_NAME} -g ${RG} --query "oidcIssuerProfile.issuerUrl" -o tsv)"
 
@@ -90,7 +97,7 @@ USER_ID=$(az ad signed-in-user show --query id -o tsv)
 az keyvault set-policy -n $AKV_NAME --certificate-permissions create get --key-permissions sign --object-id $USER_ID
 
 az keyvault set-policy --name ${AKV_NAME} \
---secret-permissions get \
+--certificate-permissions get \
 --object-id ${IDENTITY_OBJECT_ID}
 
 # Create the Key Vault certificate policy file
