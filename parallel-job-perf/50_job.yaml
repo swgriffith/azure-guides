@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: k8-parallel-job
+  labels:
+    jobgroup: jobexample
+spec:
+  parallelism: 50
+  template:
+    metadata:
+      name: k8-parallel-job
+      labels:
+        jobgroup: jobexample
+    spec:
+      containers:
+      - name: c
+        image: paralleltestgriff.azurecr.io/devopscube/kubernetes-job-demo:latest
+        args: ["10"]
+        imagePullPolicy: IfNotPresent
+      - name: ubuntu-container-1  # Ubuntu container for data manipulation.
+        image: paralleltestgriff.azurecr.io/ubuntu:latest  # The Docker image to use for the Ubuntu container.
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: shared-data  # Mounts the 'shared-data' volume inside the Ubuntu container.
+            mountPath: /pod-data  # The path within the Ubuntu container for working with shared data.
+        command: ["/bin/sh"]  # Specifies the command to run within the Ubuntu container.
+        args: ["-c", "echo 'Hello, World!!!' > /pod-data/ubuntu1-log"]
+      - name: ubuntu-container-2  # Ubuntu container for data manipulation.
+        image: paralleltestgriff.azurecr.io/ubuntu:latest  # The Docker image to use for the Ubuntu container.
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: shared-data  # Mounts the 'shared-data' volume inside the Ubuntu container.
+            mountPath: /pod-data  # The path within the Ubuntu container for working with shared data.
+        command: ["/bin/sh"]  # Specifies the command to run within the Ubuntu container.
+        args: ["-c", "echo 'Hello, World!!!' > /pod-data/ubuntu1-log"]           
+      restartPolicy: Never  # Specifies that containers in the Pod should not be restarted automatically.
+      volumes:
+        - name: shared-data  # Defines an emptyDir volume named 'shared-data' for sharing data between containers.
+          emptyDir: {}  #      containers:
+        - name: web-content
+          emptyDir: {}
