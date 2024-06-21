@@ -29,21 +29,22 @@ SUBSCRIPTION=$(az account show -o tsv --query id)
 
 az group create -n $RG -l $LOC
 
+az acr create -g $RG -n $ACR_NAME --sku Standard
+
 az aks create -g $RG -n $CLUSTER_NAME \
 --enable-addons azure-policy \
 --enable-oidc-issuer \
---enable-workload-identity
+--enable-workload-identity \
+--attach-acr $ACR_NAME
 
 az aks get-credentials -g $RG -n $CLUSTER_NAME
-
-az acr create -g $RG -n $ACR_NAME --sku Standard
-
-az aks update -g $RG -n $CLUSTER_NAME --attach-acr $ACR_NAME
-
 
 SCOPE="/subscriptions/${SUBSCRIPTION}/resourceGroups/${RG}"
 
 az policy assignment create --name 'deploy-trustedimages' --policy-set-definition 'af28bf8b-c669-4dd3-9137-1e68fdc61bd6' --display-name 'Audit deployment with unsigned container images' --scope ${SCOPE} --mi-system-assigned --role Contributor --identity-scope ${SCOPE} --location ${LOC}
+
+ASSIGNMENT_ID=$(az policy assignment show --name 'deploy-trustedimages' --scope ${SCOPE} --query id -o tsv)
+az policy remediation create --policy-assignment "$ASSIGNMENT_ID" --definition-reference-id deployAKSImageIntegrity --name remediation --resource-group ${RG}
 
 MC_RESOURCE_GROUP=$(az aks show -g $RG -n $CLUSTER_NAME -o tsv --query nodeResourceGroup)
 IDENTITY_NAME="azurepolicy-${CLUSTER_NAME}"
@@ -81,7 +82,7 @@ az identity federated-credential create \
 ## Setup Key Vault
 
 ```bash
-AKV_NAME=mynotationtest2
+AKV_NAME=mynotationtest99
 
 # Create the key vault
 az keyvault create --name $AKV_NAME --resource-group $RG --enable-rbac-authorization false
@@ -98,6 +99,7 @@ az keyvault set-policy -n $AKV_NAME --certificate-permissions create get --key-p
 
 az keyvault set-policy --name ${AKV_NAME} \
 --certificate-permissions get \
+--secret-permissions get \
 --object-id ${IDENTITY_OBJECT_ID}
 
 # Create the Key Vault certificate policy file
@@ -155,138 +157,60 @@ notation ls $ACR_NAME.azurecr.io/nginx@$IMAGE_SHA
 
 
 ```bash
-cat << EOF > ratify-policy-template.yaml
-apiVersion: templates.gatekeeper.sh/v1beta1
-kind: ConstraintTemplate
+TENANT_ID=$(az account show -o tsv --query tenantId)
+AKV_URI=$(az keyvault show -g $RG -n $AKV_NAME -o tsv --query properties.vaultUri)
+
+cat << EOF > akv-certificate-store.yaml
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: CertificateStore
 metadata:
-  name: ratifyverification
+  name: certstore-akv
 spec:
-  crd:
-    spec:
-      names:
-        kind: RatifyVerification
-  targets:
-    - target: admission.k8s.gatekeeper.sh
-      rego: |
-        package ratifyverification
-        
-        # Get data from Ratify
-        remote_data := response {
-          images := [img | img = input.review.object.spec.containers[_].image]
-          response := external_data({"provider": "ratify-provider", "keys": images})
-        }
-
-        # Base Gatekeeper violation
-        violation[{"msg": msg}] {
-          general_violation[{"result": msg}]
-        }
-        
-        # Check if there are any system errors
-        general_violation[{"result": result}] {
-          err := remote_data.system_error
-          err != ""
-          result := sprintf("System error calling external data provider: %s", [err])
-        }
-        
-        # Check if there are errors for any of the images
-        general_violation[{"result": result}] {
-          count(remote_data.errors) > 0
-          result := sprintf("Error validating one or more images: %s", remote_data.errors)
-        }
-        
-        # Check if the success criteria is true
-        general_violation[{"result": result}] {
-          subject_validation := remote_data.responses[_]
-          subject_validation[1].isSuccess == false
-          result := sprintf("Subject failed verification: %s", [subject_validation[0]])
-        }
+  provider: azurekeyvault
+  parameters:
+    vaultURI: ${AKV_URI}
+    certificates:  |
+      array:
+        - |
+          certificateName: ${CERT_NAME}
+          certificateVersion: b012d9f794254a0fb8c0ae7732648f5b 
+    tenantID: ${TENANT_ID}
+    clientID: ${IDENTITY_CLIENT_ID}
 EOF
 
-cat << EOF > ratify-policy-constraint.yaml
-apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: RatifyVerification
+kubectl apply -f akv-certificate-store.yaml
+
+cat << EOF > akv-verifier.yaml
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Verifier
 metadata:
-  name: ratify-constraint
+  name: verifier-notation
 spec:
-  enforcementAction: deny
-  match:
-    kinds:
-      - apiGroups: [""]
-        kinds: ["Pod"]
-    namespaces: ["default"]
+  name: notation
+  artifactTypes: application/vnd.cncf.notary.signature
+  parameters:
+    verificationCertStores:
+      certs:
+          - certstore-akv
+    trustPolicyDoc:
+      version: "1.0"
+      trustPolicies:
+        - name: default
+          registryScopes:
+            - "*"
+          signatureVerification:
+            level: strict
+          trustStores:
+            - ca:certs
+          trustedIdentities:
+            - "*"
 EOF
 
-POLICY_TEMPLATE=$(cat ratify-policy-template.yaml|base64)
-POLICY_CONSTRAINT=$(cat ratify-policy-constraint.yaml|base64)
+kubectl apply -f akv-verifier.yaml
 
-cat << EOF > policy-definition.json
-{
-    "properties": {
-        "displayName": "Image Verification",
-        "policyType": "Custom",
-        "mode": "Microsoft.Kubernetes.Data",
-        "description": "Only allow signed images",
-        "metadata": {
-            "version": "1.0.0",
-            "category": "Kubernetes"
-        },
-        "parameters": {
-            "effect": {
-                "type": "String",
-                "metadata": {
-                    "displayName": "Effect",
-                    "description": "Enable or disable the execution of the policy"
-                },
-                "allowedValues": [
-                    "audit",
-                    "deny",
-                    "disabled"
-                ],
-                "defaultValue": "audit"
-            },
-            "excludedNamespaces": {
-                "type": "Array",
-                "metadata": {
-                    "displayName": "Namespace exclusions",
-                    "description": "List of Kubernetes namespaces to exclude from policy evaluation. Providing a value for this parameter is optional."
-                },
-                "defaultValue": [
-                    "kube-system",
-                    "gatekeeper-system",
-                    "azure-arc"
-                ]
-            }
-        },
-        "policyRule": {
-            "if": {
-                "field": "type",
-                "in": [
-                    "AKS Engine",
-                    "Microsoft.Kubernetes/connectedClusters",
-                    "Microsoft.ContainerService/managedClusters"
-                ]
-            },
-            "then": {
-                "effect": "[parameters('effect')]",
-                "details": {
-                    "templateInfo": {
-                        "sourceType": "Base64Encoded",
-                        "content": "${POLICY_TEMPLATE}"
-                    },
-                    "excludedNamespaces": "[parameters('excludedNamespaces')]",
-                    "values": {
-                    },
-                    "apiGroups": [
-                        "extensions",
-                        "networking.k8s.io"
-                    ],
-                    "kinds": [
-                        "Pod"
-                    ]
-                }
-            }
-        }
-    }
-}
-EOF
+
+kubectl run demo-fail --namespace default --image=nginx:latest
+kubectl run demo-pass --namespace default --image=$ACR_NAME.azurecr.io/nginx@$IMAGE_SHA
+
+
 ```
