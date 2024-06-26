@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu
+spec:
+  nodeSelector:
+    agentpool: "systempool"
+  containers:
+  - name: ubuntu
+    image: ubuntu:20.04
+    # Just spin & wait forever
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "apt-get update;apt-get install -y curl;while true; do curl icanhazip.com;sleep 30; done;" ]
+  tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"    

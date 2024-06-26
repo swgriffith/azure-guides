@@ -1,0 +1,45 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: ultra-disk-sc
+provisioner: disk.csi.azure.com # replace with "kubernetes.io/azure-disk" if aks version is less than 1.21
+volumeBindingMode: WaitForFirstConsumer # optional, but recommended if you want to wait until the pod that will use this disk is created 
+parameters:
+  skuname: UltraSSD_LRS
+  kind: managed
+  cachingMode: None
+  diskIopsReadWrite: "2000"  # minimum value: 2 IOPS/GiB 
+  diskMbpsReadWrite: "320"   # minimum value: 0.032/GiB
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ultra-disk
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: ultra-disk-sc
+  resources:
+    requests:
+      storage: 1000Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu
+spec:
+  nodeSelector:
+    agentpool: "testpool"
+  containers:
+  - name: ubuntu
+    image: ubuntu:20.04
+    # Just spin & wait forever
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "apt-get update;apt-get install -y curl;while true; do curl icanhazip.com;sleep 30; done;" ]
+    volumeMounts:
+    - mountPath: "/mnt/azure"
+      name: volume
+  volumes:
+    - name: volume
+      persistentVolumeClaim:
+        claimName: ultra-disk    
