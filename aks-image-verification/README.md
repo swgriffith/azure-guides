@@ -28,7 +28,7 @@ az provider register --namespace Microsoft.ContainerService
 
 ## Cluster Setup
 
->**Note:** to create the cluster. Ratify will use Workload Identity to access the ACR and Key Vault, so we need to enable workload identity and the OIDC issuer. 
+>**Note:** When creating the cluster Ratify will use Workload Identity to access the ACR and Key Vault, so we need to enable workload identity and the OIDC issuer. 
 
 ```bash
 # Set Environment Variables
