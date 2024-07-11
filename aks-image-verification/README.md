@@ -58,7 +58,7 @@ az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 ### Enable the Image Integrity Policy
 
-Typically, you would use a policy engine to enforce image verification, so the recommended approach is to enable image integrity via Azure Poliy.
+Typically, you would use a policy engine to enforce image verification, so the recommended approach is to enable image integrity via Azure Policy.
 
 ```bash
 # Set the scope for the Policy. We'll set at the cluster resource group level, but you could go higher.
