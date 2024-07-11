@@ -76,7 +76,7 @@ az policy remediation create --policy-assignment "$ASSIGNMENT_ID" --definition-r
 
 At this point you'll need to wait for the gatekeeper and ratify components to be deployed via policy. You can watch the status and once the pods are running you can move on to the next step.
 
->**NOTE:** I have seen cases where you may need to re-run the remdiation command for the remediation to complete.
+>**NOTE:** I have seen cases where you may need to re-run the remediation command for the remediation to complete.
 
 ```bash
 watch kubectl get pods -n gatekeeper-system
@@ -114,11 +114,6 @@ az role assignment create \
 --assignee-object-id ${IDENTITY_OBJECT_ID} \
 --role acrpull \
 --scope ${ACR_ID}
-
-# az role assignment create \
-# --assignee-object-id ${IDENTITY_OBJECT_ID} \
-# --role AcrImageSigner \
-# --scope ${ACR_ID}
 
 # Get the AKS Cluster OIDC Issuer URL
 export AKS_OIDC_ISSUER="$(az aks show -n ${CLUSTER_NAME} -g ${RG} --query "oidcIssuerProfile.issuerUrl" -o tsv)"
