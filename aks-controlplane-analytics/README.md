@@ -2,15 +2,15 @@
 
 ## Introduction
 
-While AKS does NOT provide access to the cluster's managed control plane, it does provide access to the control plane component logs via [diagnostic settings](https://learn.microsoft.com/en-us/azure/aks/monitor-aks#aks-control-planeresource-logs). The easiest option to persist and search this data is to send it directly to Azure Log Analytics, however there is a LOT of data in those logs, which makes it cost prohibitive in Log Analytics. Alternatively, you can send all of the data to an Azure Storage Account, but then searching and alerting can be challenging. 
+While AKS does NOT provide access to the cluster's managed control plane, it does provide access to the control plane component logs via [diagnostic settings](https://learn.microsoft.com/en-us/azure/aks/monitor-aks#aks-control-planeresource-logs). The easiest option to persist and search this data is to send it directly to Azure Log Analytics, however there is a LOT of data in those logs, which makes it cost prohibitive in Log Analytics. Alternatively, you can send all the data to an Azure Storage Account, but then searching and alerting can be challenging. 
 
-To address the above challenge, on option is to stream the data to Azure Event Hub, which then gives you the option to use stream analytics to filter out events you deem important and then just store the rest for potential future diagnostic needs.
+To address the above challenge, one option is to stream the data to Azure Event Hub, which then gives you the option to use Azure Stream Analytics to filter out events that you deem important and then just store the rest in cheaper storage (ex. Azure Storage) for potential future diagnostic needs.
 
 In this walkthrough we'll create an AKS cluster, enable diagnostic logging to Azure Stream Analytics and then demonstrate how to filter out some key records.
 
 ## Cluster & Stream Analytics Setup
 
-In this setup, the cluster will be a very basic AKS cluster that will simply have diagnostic settings enabled. 
+In this setup, the cluster will be a very basic single node AKS cluster that will simply have diagnostic settings enabled. We'll also create the Event Hub instance that will be used in the diagnostic settings. 
 
 ```bash
 # Set some environment variables
@@ -52,15 +52,11 @@ az monitor diagnostic-settings create \
 --logs '[ { "category": "kube-audit", "enabled": true, "retentionPolicy": { "enabled": false, "days": 0 } } ]' 
 ```
 
-## Setup a test workload to trigger audit log entries
-
-<TBD>
-
 ## Stream Analytics
 
-As we'll use Stream Analytics to filter through the log messages for what we want to capture, we'll need ot create a Stream Analytics Job. This Job will take the Event Hub as it's input source, will run a query and will need an output target. This output target can be a number of options, but for the purposes of our test we'll write the filtered records out to a Service Bus Queue, which we can watch in real time.
+As we'll use Stream Analytics to filter through the log messages for what we want to capture, we'll need to create a Stream Analytics Job. This job will take the Event Hub as it's input source, will run a query and will need an output target. This output target can be a number of options, but for the purposes of our test we'll write the filtered records out to a Service Bus Queue, which we can watch in real time.
 
-We have the Event Hub alread, so lets create the Azure Service Bus Queue and then the Stream Analytics Job to tie it all together.
+We have the Event Hub already, now lets create the Azure Service Bus Queue and then the Stream Analytics Job to tie it all together.
 
 ### Create the Service Bus Queue
 
@@ -108,7 +104,7 @@ For the Stream Analytics Job we'll switch over to the portal, so go ahead and op
    
    ![Create Input](./images/sa-job-create-input.jpg)
 
-9.  The Event Hub new input pane should auto-populate with your event hub as well as default to creation of a new access policy, but verify that all of the details are correct and then click 'Save'.
+9.  The Event Hub's new input creation pane should auto-populate with your Event Hub details as well as default to creation of a new access policy, but verify that all of the details are correct and then click 'Save'.
     
    ![Event Hub Config Details](./images/sa-event-hub-config.jpg)
 
@@ -140,9 +136,9 @@ For the Stream Analytics Job we'll switch over to the portal, so go ahead and op
 
 16. Click on 'Save' to save the function
 
-17. Now click, under 'Job topology' in the stream analytics job, click on 'Query' to start adding a query. When loaded, the inputs, outputs and functions should pre-populate for you.
+17. Now, under 'Job topology' in the stream analytics job, click on 'Query' to start adding a query. When loaded, the inputs, outputs and functions should pre-populate for you.
     
-18. We'll first create a basic query to select all records and ship them to the output target. In the query window past the following, updating the input and output values to match the names of your input and output. The function name should be the same unless you changed it.
+18. We'll first create a basic query to select all records and ship them to the output target. In the query window paste the following, updating the input and output values to match the names of your input and output. The function name should be the same unless you changed it.
 
     ```sql
     WITH DynamicCTE AS (
@@ -183,9 +179,98 @@ For the Stream Analytics Job we'll switch over to the portal, so go ahead and op
 
     ![Live Audit Record](./images/sb-audit-record.jpg)
 
+28. Navigate back to the stream analytics job and click on 'Stop job' to stop sending records through to the service bus.
+
 Great! You should now have a very basic stream analytics job that takes the control plane 'kube-audit' log from an AKS cluster through Event Hub, queries that data and then pushes it to a Service Bus Queue. While this is great, the goal is to filter out some records, so lets move on to that!
 
+## Setup a test workload to trigger audit log entries
+
+To test out our stream analytics query, we need some test data we can filter on. Let's create some requests to the API server that will be denied. To do that we'll create a service account, role and role binding and then create a test pod.
+
+```bash
+# Create a new namespace
+kubectl create ns demo-ns
+
+# Create a service account in the namespace
+kubectl create sa demo-user -n demo-ns
+
+# Create a test secret
+kubectl create secret generic demo-secret -n demo-ns --from-literal 'message=hey-there'
+
+# Check that you can read the secret
+kubectl get secret demo-secret -n demo-ns -o jsonpath='{.data.message}'|base64 --decode
+
+# Create a test pod to try to query the API server
+kubectl run curlpod --rm -it \
+--image=curlimages/curl -n demo-ns \
+--overrides='{ "spec": { "serviceAccount": "demo-user" }  }' -- sh
+
+#############################################
+# From within the pod run the following
+#############################################
+# Point to the internal API server hostname
+export APISERVER=https://kubernetes.default.svc
+
+# Path to ServiceAccount token
+export SERVICEACCOUNT=/var/run/secrets/kubernetes.io/serviceaccount
+
+# Read this Pod's namespace
+export NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
+
+# Read the ServiceAccount bearer token
+export TOKEN=$(cat ${SERVICEACCOUNT}/token)
+
+# Reference the internal certificate authority (CA)
+export CACERT=${SERVICEACCOUNT}/ca.crt
+
+# Explore the API with TOKEN 
+# This call will pass
+curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET ${APISERVER}/api
+
+# This call to get secrets will fail
+curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET ${APISERVER}/api/v1/namespaces/$NAMESPACE/secrets/
+
+# Now run it under a watch to trigger continuous deny errors
+watch 'curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET ${APISERVER}/api/v1/namespaces/$NAMESPACE/secrets/'
+```
 
 
+## Update Stream Analytics to Look for Forbidden Requests
+
+So, we have a user trying to execute requests against our cluster for which they are not authorized. We can easily update our stream analytics query to filter out forbidden requests against our namespace. 
+
+1. Navigate back to your 'Stream Analytics' instances in the Azure Portal
+   
+2. If the job is still running, make sure you click 'Stop job' as you cannot edit queries while the job is running
+   
+3. Click on the 'Query' tab
+   
+4. Update the query as follows, to filter out audit messages about our 'demo-ns' namespace that also have a status code of 403 (Forbidden)
+   
+    > *Note:* Be sure that your 'FROM' still points to your Event Hub input target and that your 'INTO' still points to your Service Bus output target.
+
+   ```sql
+    WITH DynamicCTE AS (
+    SELECT UDF.jsonparse(individualRecords.ArrayValue.properties.log) AS log
+    FROM [logfilterhub28026]
+    CROSS APPLY GetArrayElements(records) AS individualRecords
+    )
+    SELECT *
+    INTO [kubeaudit]
+    FROM DynamicCTE
+    WHERE log.objectRef.namespace = 'demo-ns'
+    AND log.responseStatus.code = 403
+    ```
+    ![Updated Query Window](./images/sa-403-query.jpg)
+
+5. Click 'Save query'
+6. Once the save completes click 'Start Job'
+
+Once your job is started, you should be able to navigate back to your Service Bus Queue and watch the messages flowing through.
+
+![Filtered Messages](./images/sb-filtered-messages.jpg)
 
 
+## Conclusion
+
+Congratulations! You now have an end-to-end fully working Stream Analytics instance that can filter AKS control plane logs to extract specific messages. You can manipulate the diagnostic settings to add additional logs to the input and modify the query to extract the exact messages critical to your cluster's health and security. This is an extremely versatile solution that is also capable of handling log records of multiple clusters across your enterprise.
