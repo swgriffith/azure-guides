@@ -247,7 +247,7 @@ So, we have a user trying to execute requests against our cluster for which they
    
 4. Update the query as follows, to filter out audit messages about our 'demo-ns' namespace that also have a status code of 403 (Forbidden)
    
-    > *Note:* Be sure that your 'FROM' still points to your Event Hub input target and that your 'INTO' still points to your Service Bus output target.
+    > **Note:** Be sure that your 'FROM' still points to your Event Hub input target and that your 'INTO' still points to your Service Bus output target.
 
    ```sql
     WITH DynamicCTE AS (
