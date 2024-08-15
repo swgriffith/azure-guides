@@ -54,7 +54,7 @@ az monitor diagnostic-settings create \
 
 ## Stream Analytics
 
-As we'll use Stream Analytics to filter through the log messages for what we want to capture, we'll need to create a Stream Analytics Job. This job will take the Event Hub as it's input source, will run a query and will need an output target. This output target can be a number of options, but for the purposes of our test we'll write the filtered records out to a Service Bus Queue, which we can watch in real time.
+As we'll use Stream Analytics to filter through the log messages for what we want to capture, we'll need to create a Stream Analytics Job. This job will take the Event Hub as it's input source, will run a query and will send the query results to an output target. This output target can be a number of options, but for the purposes of our test we'll write the filtered records out to a Service Bus Queue, which we can watch in real time.
 
 We have the Event Hub already, now lets create the Azure Service Bus Queue and then the Stream Analytics Job to tie it all together.
 
