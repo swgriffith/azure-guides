@@ -185,7 +185,7 @@ Great! You should now have a very basic stream analytics job that takes the cont
 
 ## Setup a test workload to trigger audit log entries
 
-To test out our stream analytics query, we need some test data we can filter on. Let's create some requests to the API server that will be denied. To do that we'll create a service account, role and role binding and then create a test pod.
+To test out our stream analytics query, we need some test data we can filter on. Let's create some requests to the API server that will be denied. To do that we'll create a service account with no rights and then create a test pod using that service account. We'll then use the service account token to try to reach the Kubernetes API server.
 
 ```bash
 # Create a new namespace
