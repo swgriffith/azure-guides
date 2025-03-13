@@ -9,6 +9,7 @@ az extension add --upgrade -n ml
 az extension add --upgrade -n k8s-extension
 
 # It also assumes you have kubectl installed. If not, you can run:
+
 az aks install-cli
 ```
 
@@ -16,6 +17,7 @@ az aks install-cli
 
 ```bash
 # Set environment variables
+
 RG=EphAKSAMLLab
 CLUSTER_NAME=amltarget
 LOC=westus3
@@ -23,16 +25,20 @@ AML_WORKSPACE_NAME=amllab
 CLUSTER_AML_NAMESPACE=amltest
 
 # Create Resource Group
+
 az group create -g $RG -l $LOC
 
 # Create the cluster
-az aks create -g $RG -n $CLUSTER_NAME
+
+az aks create -g $RG -n $CLUSTER_NAME --node-count 5
 
 AKS_CLUSTER_ID=$(az aks show -g $RG -n $CLUSTER_NAME --query id -o tsv)
 
 az aks get-credentials -g $RG -n $CLUSTER_NAME
 
 kubectl create ns $CLUSTER_AML_NAMESPACE
+
+# Install the AML extension in the cluster
 
 az k8s-extension create \
 --name amlextension \
@@ -49,6 +55,8 @@ az k8s-extension show \
 --cluster-name $CLUSTER_NAME \
 --resource-group $RG
 
+
+# Create the AML workspace and attach to cluster
 
 az ml workspace create -n $AML_WORKSPACE_NAME -g $RG
 
@@ -162,7 +170,6 @@ az ml online-deployment create \
 --endpoint $ENDPOINT_NAME \
 --all-traffic \
 -f deployment.yaml
-
 ```
 
 ## Test the Inference Endpoint
