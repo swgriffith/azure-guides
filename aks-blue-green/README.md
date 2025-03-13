@@ -185,7 +185,7 @@ EOF
 As with above, we'll select a static IP from the loadbalancer subnet and deploy
 
 ```bash
-# Choose an IP from your Cluster A Load Balancer Subnet
+# Choose an IP from your Cluster B Load Balancer Subnet
 KUBE_SVC_STATIC_IP=10.140.6.10
 
 cat <<EOF | kubectl apply -f -
