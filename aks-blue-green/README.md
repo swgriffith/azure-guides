@@ -128,7 +128,7 @@ We want the kubernetes service to use a private load balancer, in the subnet we 
 
 ```bash
 # Choose an IP from your Cluster A Load Balancer Subnet
-KUBE_SVC_STATIC_IP=10.140.5.10
+CLUSTER_A_KUBE_SVC_STATIC_IP=10.140.5.10
 
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -138,13 +138,14 @@ metadata:
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
     service.beta.kubernetes.io/azure-load-balancer-internal-subnet: aks-cluster-a-loadbalancer
-    service.beta.kubernetes.io/azure-load-balancer-ipv4: ${KUBE_SVC_STATIC_IP}
+    service.beta.kubernetes.io/azure-load-balancer-ipv4: ${CLUSTER_A_KUBE_SVC_STATIC_IP}
 spec:
   type: LoadBalancer
   ports:
-  - port: 8080
+  - port: 80
+    targetPort: 8080
   selector:
-    app: aks-${CLUSTER_A_NAME}-helloworld-svc
+    app: aks-${CLUSTER_A_NAME}-helloworld
 EOF
 ```
 
@@ -186,7 +187,7 @@ As with above, we'll select a static IP from the loadbalancer subnet and deploy
 
 ```bash
 # Choose an IP from your Cluster B Load Balancer Subnet
-KUBE_SVC_STATIC_IP=10.140.6.10
+CLUSTER_B_KUBE_SVC_STATIC_IP=10.140.6.10
 
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -196,13 +197,14 @@ metadata:
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
     service.beta.kubernetes.io/azure-load-balancer-internal-subnet: aks-cluster-b-loadbalancer
-    service.beta.kubernetes.io/azure-load-balancer-ipv4: ${KUBE_SVC_STATIC_IP}
+    service.beta.kubernetes.io/azure-load-balancer-ipv4: ${CLUSTER_B_KUBE_SVC_STATIC_IP}
 spec:
   type: LoadBalancer
   ports:
-  - port: 8080
+  - port: 80
+    targetPort: 8080
   selector:
-    app: aks-${CLUSTER_B_NAME}-helloworld-svc
+    app: aks-${CLUSTER_B_NAME}-helloworld
 EOF
 ```
 
@@ -225,3 +227,4 @@ az network lb show \
 --query "frontendIPConfigurations[0].subnet" \
 --output tsv
 ```
+
