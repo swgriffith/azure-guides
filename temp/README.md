@@ -1,0 +1,6 @@
+- Fleet - Slide 34
+- AGIC - No Slide https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/overview
+- Istio
+  - Canary Upgrade: https://learn.microsoft.com/en-us/azure/aks/istio-upgrade
+  - Plugin-CA: https://learn.microsoft.com/en-us/azure/aks/istio-plugin-ca
+  - 
