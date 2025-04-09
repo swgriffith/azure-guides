@@ -3,4 +3,11 @@
 - Istio
   - Canary Upgrade: https://learn.microsoft.com/en-us/azure/aks/istio-upgrade
   - Plugin-CA: https://learn.microsoft.com/en-us/azure/aks/istio-plugin-ca
-  - 
+  - Mesh Config: https://learn.microsoft.com/en-us/azure/aks/istio-meshconfig
+- ACNS: AKS Features Slide 92-94
+- Artifact Streaming - https://learn.microsoft.com/en-us/azure/aks/artifact-streaming
+- Static Egress Gateway - AKS Features - Slide 87
+- ACNS L7 Filtering - AKS Features - Slide 95-96
+- Network Isolated Cluster - AKS Features - Slide 89
+- API Server Vnet Integration - AKS Networking - Slide 8
+- Multi-LB Support - No slides...just speak to it
