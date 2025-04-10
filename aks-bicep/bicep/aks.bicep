@@ -25,6 +25,13 @@ param serviceCidr string = '10.100.0.0/16'
 param dnsServivceIP string = '10.100.0.10'
 param podCidr string = '10.244.0.0/16'
 
+@description('The ID of the subnet for the system pool subnet.')
+param systemPoolVnetSubnetID string
+
+@description('The ID of the subnet for the user pool subnet.')
+param userPoolVnetSubnetID string
+
+
 @description('The SSH key to use for the cluster.')
 param sshKey string = ''
 param linuxAdminUser string = 'azureuser'
@@ -46,13 +53,16 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
         mode: 'System'
         nodeTaints: [
           'CriticalAddonsOnly=true:NoSchedule'
-        ]      }
+        ]
+        vnetSubnetID: systemPoolVnetSubnetID
+      }
       {
         name: userPoolName
         count: userPoolCount
         vmSize: userPoolVMSize
         osType: 'Linux'
         mode: 'User'
+        vnetSubnetID: userPoolVnetSubnetID
       }
     ]
     networkProfile: {
