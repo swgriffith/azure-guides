@@ -10,7 +10,7 @@ param location string = resourceGroup().location
 param syspoolNodeCount int = 3
 
 @description('The name of the user pool.')
-param userPoolName string = 'userPool'
+param userPoolName string = 'user'
 
 @description('The number of nodes for the user pool.')
 param userPoolCount int = 3
@@ -39,7 +39,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
     dnsPrefix: clusterName
     agentPoolProfiles: [
       {
-        name: 'syspool'
+        name: 'sys'
         count: syspoolNodeCount
         vmSize: systemPoolVMSize
         osType: 'Linux'
