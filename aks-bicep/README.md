@@ -21,19 +21,19 @@ export LINUX_ADMIN_USER="azureuser"
 
 
 az deployment group create \
-  --resource-group $RG \
-  --template-file ./bicep/aks.bicep \
-  --parameters \
-    clusterName=$CLUSTER_NAME \
-    location=$LOCATION \
-    syspoolNodeCount=$SYSPOOL_NODE_COUNT \
-    userPoolName=$USER_POOL_NAME \
-    userPoolCount=$USER_POOL_COUNT \
-    userPoolVMSize=$USER_POOL_VM_SIZE \
-    systemPoolVMSize=$SYSTEM_POOL_VM_SIZE \
-    serviceCidr=$SERVICE_CIDR \
-    dnsServivceIP=$DNS_SERVICE_IP \
-    podCidr=$POD_CIDR \
-    sshKey="$SSH_KEY" \
-    linuxAdminUser=$LINUX_ADMIN_USER
+--resource-group $RG \
+--template-file ./bicep/aks.bicep \
+--parameters \
+clusterName=$CLUSTER_NAME \
+location=$LOC \
+syspoolNodeCount=$SYSPOOL_NODE_COUNT \
+userPoolName=$USER_POOL_NAME \
+userPoolCount=$USER_POOL_COUNT \
+userPoolVMSize=$USER_POOL_VM_SIZE \
+systemPoolVMSize=$SYSTEM_POOL_VM_SIZE \
+serviceCidr=$SERVICE_CIDR \
+dnsServivceIP=$DNS_SERVICE_IP \
+podCidr=$POD_CIDR \
+sshKey="$SSH_KEY" \
+linuxAdminUser=$LINUX_ADMIN_USER
 ```
