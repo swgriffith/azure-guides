@@ -1,0 +1,15 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cpu-scaledobject
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: cpu-stressor-deployment
+  triggers:
+  - type: cpu
+    metricType: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+    metadata:
+      value: "50"
+  minReplicaCount: 1
+  maxReplicaCount: 10
