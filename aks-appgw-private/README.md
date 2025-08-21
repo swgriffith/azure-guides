@@ -132,6 +132,7 @@ az network vnet subnet create \
 
 # (Optional) Grab the subnet resource id
 APPGW_SUBNET_ID=$(az network vnet subnet show -g $RG --vnet-name $VNET_NAME -n appgw -o tsv --query id)
+APPGW_PRIVATE_IP=10.140.1.4
 
 # Create an internal (private) Application Gateway (Standard_v2)
 az network application-gateway create \
@@ -144,7 +145,7 @@ az network application-gateway create \
 --priority 1000 \
 --vnet-name $VNET_NAME \
 --subnet appgw \
---private-ip-address 10.140.1.4 \
+--private-ip-address $APPGW_PRIVATE_IP \
 --servers "$INGRESS_PRIVATE_IP"
 
 # Create a health probe that hits a valid path on the 
@@ -157,7 +158,12 @@ az network application-gateway probe create \
 --host 127.0.0.1 \
 --path "/hello-world"
 
-# Verify provisioning state and private frontend IP
-az network application-gateway show -g $RG -n appgw -o table
-az network application-gateway frontend-ip list -g $RG --gateway-name appgw -o table
+az network application-gateway http-settings update \
+--gateway-name appgw \
+--resource-group $RG \
+--name appGatewayBackendHttpSettings \
+--probe demo-probe
+
+# Test the App Gateway
+kubectl run --rm -it --tty curltest --image=curlimages/curl --restart=Never -- http://$APPGW_PRIVATE_IP/hello-world
 ```
