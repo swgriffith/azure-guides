@@ -122,12 +122,6 @@ INGRESS_PRIVATE_IP=$(kubectl get svc nginx -n app-routing-system -o jsonpath='{.
 Now lets provision the private Azure Application Gateway
 
 ```bash
-# Enable App Gateway Network Isolation
-az feature register --name EnableApplicationGatewayNetworkIsolation --namespace Microsoft.Network
-
-# Check the feature registration status
-az feature show --namespace "Microsoft.Network" --name "EnableApplicationGatewayNetworkIsolation"
-
 # Create a dedicated subnet for Application Gateway
 az network vnet subnet create \
     -g $RG \
@@ -150,7 +144,18 @@ az network application-gateway create \
 --priority 1000 \
 --vnet-name $VNET_NAME \
 --subnet appgw \
---private-ip-address 10.140.1.4
+--private-ip-address 10.140.1.4 \
+--servers "$INGRESS_PRIVATE_IP"
+
+# Create a health probe that hits a valid path on the 
+# ingress controller
+az network application-gateway probe create \
+-g $RG \
+--gateway-name appgw \
+-n demo-probe \
+--protocol http \
+--host 127.0.0.1 \
+--path "/hello-world"
 
 # Verify provisioning state and private frontend IP
 az network application-gateway show -g $RG -n appgw -o table
