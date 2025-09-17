@@ -4,9 +4,10 @@
 
 ```bash
 # Set environment variables
-RG=EphAKSAMLLab
+RG=EphAKSAML
 CLUSTER_NAME=amltarget
 LOC=westus3
+export VM_SKU="Standard_D4s_v6"
 ACR_NAME=amllab${RANDOM}
 AML_WORKSPACE_NAME=amllab
 
@@ -14,40 +15,53 @@ AML_WORKSPACE_NAME=amllab
 az group create -g $RG -l $LOC
 
 # Create the cluster
-az aks create -g $RG -n $CLUSTER_NAME
+az aks create -g $RG \
+-n $CLUSTER_NAME \
+--node-vm-size $VM_SKU \
+--node-count 3 \
+--network-plugin azure \
+--network-plugin-mode overlay \
+--network-dataplane cilium \
+--vnet-subnet-id $VNET_SUBNET_ID \
+--enable-managed-identity \
+--enable-oidc-issuer \
+--enable-workload-identity \
+--attach-acr $ACR_NAME
 
 AKS_CLUSTER_ID=$(az aks show -g $RG -n $CLUSTER_NAME --query id -o tsv)
 
 az aks get-credentials -g $RG -n $CLUSTER_NAME
 
-kubectl create ns amltest
+# Create a certificate and secret for kubernetes ingress
+
+kubectl create ns amllab
+kubectl create ns azureml
+
+# Create a self-signed certificate (for testing) and a Kubernetes TLS secret.
+# For production use a CA-signed certificate, cert-manager, or Azure Key Vault.
+HOST="amllab.crashoverride.nyc"
+KEY_FILE="key.pem"
+CERT_FILE="cert.pem" 
+
+openssl req -x509 -nodes -days 365 \
+-newkey rsa:2048 -keyout ${KEY_FILE} \
+-out ${CERT_FILE} \
+-subj "/CN=${HOST}/O=${HOST}" \
+-outform PEM \
+-addext "subjectAltName = DNS:${HOST}"
+
+kubectl create secret generic amllab-ingress-tls \
+--from-file=${KEY_FILE}=${KEY_FILE} --from-file=${CERT_FILE}=${CERT_FILE} \
+-n azureml
 
 az k8s-extension create \
 --name amlextension \
 --extension-type Microsoft.AzureML.Kubernetes \
---config enableTraining=True enableInference=True inferenceRouterServiceType=LoadBalancer allowInsecureConnections=True InferenceRouterHA=False \
+--config enableInference=True inferenceRouterServiceType=LoadBalancer allowInsecureConnections=False InferenceRouterHA=False sslSecret=amllab-ingress-tls sslCname=amllab.crashoverride.nyc \
 --cluster-type managedClusters \
 --cluster-name $CLUSTER_NAME \
 --resource-group $RG \
 --scope cluster
-
-az k8s-extension show \
---name amlextension \
---cluster-type connectedClusters \
---cluster-name $CLUSTER_NAME \
---resource-group $RG
-
-
-az ml workspace create -n $AML_WORKSPACE_NAME -g $RG
-
-az ml compute attach \
---resource-group $RG \
---workspace-name $AML_WORKSPACE_NAME \
---type Kubernetes \
---name k8s-compute \
---resource-id "${AKS_CLUSTER_ID}" \
---identity-type SystemAssigned \
---namespace amltest
 ```
 
 ## Deploy Inference Endpoint
@@ -110,10 +124,6 @@ az ml online-endpoint create \
 -n $ENDPOINT_NAME \
 -f endpoint.yaml
 
-az ml online-deployment create \
--g $RG \
--w $AML_WORKSPACE_NAME \
--n blue \
---endpoint $ENDPOINT_NAME \
--f deployment.yaml
+
+
 ```
