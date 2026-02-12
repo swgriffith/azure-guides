@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hook-injector-hooks
+  namespace: kube-system
+data:
+  always-inject.json: |
+    {
+        "version": "1.0.0",
+        "hook": {
+            "path": "/usr/local/sbin/demo-hook.sh",
+            "args": ["demo-hook.sh", "hook", "injected", "by", "nri"],
+            "env": [
+                "DEMO_HOOK_INJECTED=true"
+            ]
+        },
+        "when": {
+            "always": true
+        },
+        "stages": ["prestart"]
+    }
