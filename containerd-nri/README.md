@@ -1,162 +1,150 @@
-# Containerd NRI Setup
+# Containerd NRI on AKS
 
-The following walks you through the creation of an AKS cluster, manual installation of containerd 1.7, which supports NRI. Then it enables NRI, builds the sample NRI hook examples and sets up the OCI hook-injector.
+This guide walks through creating an AKS cluster, verifying NRI (Node Resource Interface) is enabled, and running the containerd NRI OCI Hook Injector example.
 
->*NOTE:* In a real world scenario you would set up a daemonset to configure all of these details across all cluster nodes. The goal of this guide is just to show the basic required steps.
+## Prerequisites
 
->*WARNING:* As of the writing of this guide, Azure Kubernetes Service is not yet on containerd 1.7. As such, this is not a supported configuration at this time. This document is purely to demonstrate the setup steps.
+- Azure CLI installed and configured
+- kubectl installed
+- Access to an Azure subscription
 
-### Create the cluster
-```bash
-RG=EphContainerD2
-LOC=eastus
-CLUSTER_NAME=containerd-test
+## Step 1: Create an AKS Cluster
 
-az group create -g $RG -l $LOC
-
-# Optional
-VNET_SUBNET_ID=<Fully Qualified Subnet Resource ID>
-
-az aks create -g $RG -n $CLUSTER_NAME --vnet-subnet-id $VNET_SUBNET_ID -c 1
-
-az aks get-credentials -g $RG -n $CLUSTER_NAME --admin
-```
-
-### Single node containerd upgrade
+Create a resource group and AKS cluster:
 
 ```bash
-# SSH to the target node
-kubectl get nodes -o wide
-NAME                                STATUS   ROLES   AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-aks-nodepool1-17180155-vmss000000   Ready    agent   21m   v1.24.9   10.10.4.4     <none>        Ubuntu 18.04.6 LTS   5.4.0-1103-azure   containerd://1.6.17+azure-1
+# Set variables
+RESOURCE_GROUP="nri-demo-rg4"
+CLUSTER_NAME="nri-example"
+LOCATION="eastus2"
+NODE_VM_SIZE="standard_d4_v4"
 
-ssh azureuser@10.10.4.4
+# Create resource group
+az group create --name $RESOURCE_GROUP --location $LOCATION
 
-cd /tmp
+# Create AKS cluster with Ubuntu 24.04 (containerd 2.0 has NRI enabled by default)
+az aks create \
+  --resource-group $RESOURCE_GROUP \
+  --name $CLUSTER_NAME \
+  --node-count 1 \
+  --node-vm-size $NODE_VM_SIZE \
+  --os-sku Ubuntu2404 \
+  --generate-ssh-keys
 
-wget https://github.com/containerd/containerd/releases/download/v1.7.0/containerd-1.7.0-linux-amd64.tar.gz
-tar xvf containerd-1.7.0-linux-amd64.tar.gz
-
-sudo systemctl stop containerd
-# Stop any processes accessing the shim
-sudo lsof -t /usr/bin/containerd-shim-runc-v2 | sudo xargs kill
-sudo cp bin/containerd* /usr/bin
-sudo systemctl start containerd
-
-# In another terminal you can verify the containerd version is updated to 1.7.0
-kubectl get nodes -o wide
-NAME                                STATUS   ROLES   AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-aks-nodepool1-17180155-vmss000000   Ready    agent   27m   v1.24.9   10.10.4.4     <none>        Ubuntu 18.04.6 LTS   5.4.0-1103-azure   containerd://1.7.0
+# Get credentials
+az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
 ```
 
-## Enable NRI and setup the OCI hook-injector
+## Step 2: Verify NRI is Enabled in Containerd Config
 
-For this test I'll build the OCI Hook-Injector plugin on the AKS node, but you can and should build it externally and then pull it in.
-
-Install go:
+SSH into a node to check the containerd configuration:
 
 ```bash
-sudo apt update
-sudo apt upgrade
+# Get node name
+NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
 
-# Get Go
-wget https://go.dev/dl/go1.20.2.linux-amd64.tar.gz
-
-# Remove old installs and extract the binaries
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.20.2.linux-amd64.tar.gz
-
-# Add go to the path
-export PATH=$PATH:/usr/local/go/bin
-
-# Check the go version
-go version
-go version go1.20.2 linux/amd64
+# Create a debug pod to access the node
+kubectl debug node/$NODE_NAME -it --image=mcr.microsoft.com/cbl-mariner/base/core:2.0
 ```
 
-Build the OCI hook-injector plugin:
+Once inside the debug pod, check the containerd config:
 
 ```bash
-# Go to azureuser home
-cd $HOME 
+# Switch to host filesystem
+chroot /host
+bash
 
-# Clone the NRI repo
-git clone https://github.com/containerd/nri.git
-
-# Build
-cd nri
-make
+# Verify NRI is enabled by checking if the NRI socket exists:
+ls -la /var/run/nri/nri.sock
 ```
 
-Enable NRI:
+Exit the debug pod:
 
 ```bash
-# Backup your containerd config
-sudo cp /etc/containerd/config.toml /tmp
-
-sudo bash -c 'cat << EOF >> /etc/containerd/config.toml
-[plugins."io.containerd.nri.v1.nri"]
-  # Enable NRI support in containerd.
-  disable = false
-  # Allow connections from externally launched NRI plugins.
-  disable_connections = false
-  # plugin_config_path is the directory to search for plugin-specific configuration.
-  plugin_config_path = "/etc/nri/conf.d"
-  # plugin_path is the directory to search for plugins to launch on startup.
-  plugin_path = "/opt/nri/plugins"
-  # plugin_registration_timeout is the timeout for a plugin to register after connection.
-  plugin_registration_timeout = "5s"
-  # plugin_requst_timeout is the timeout for a plugin to handle an event/request.
-  plugin_request_timeout = "2s"
-  # socket_path is the path of the NRI socket to create for plugins to connect to.
-  socket_path = "/var/run/nri/nri.sock"
-EOF'
+exit
+exit
+exit
 ```
 
-Copy the sample hook and hook config to the right paths and then start the hook injector:
+Clean up the debug pod:
 
 ```bash
-# Get the sample hook script
-sudo wget -O /usr/local/sbin/demo-hook.sh https://raw.githubusercontent.com/containerd/nri/main/plugins/hook-injector/usr/local/sbin/demo-hook.sh
-sudo chmod +x /usr/local/sbin/demo-hook.sh
-
-# Create the Default Directory used for OCI hooks
-sudo mkdir -p /etc/containers/oci/hooks.d
-# Get the sample hook config
-sudo wget -O /etc/containers/oci/hooks.d/always-inject.json https://raw.githubusercontent.com/containerd/nri/main/plugins/hook-injector/etc/containers/oci/hooks.d/always-inject.json
-
-# Create the plugin directory
-sudo mkdir -p /opt/nri/plugins
-
-# Create the symlink to the hook-injector binary
-sudo ln -s /home/azureuser/nri/build/bin/hook-injector /opt/nri/plugins/10-hook-injector
-
-# Restart containerd 
-sudo systemctl restart containerd
+kubectl delete pod $(kubectl get pods | grep node-debugger | awk '{print $1}')
 ```
 
+## Step 3: Run the NRI OCI Hook Injector Example
 
+The OCI Hook Injector is an NRI plugin that injects OCI hooks into containers. NRI plugins run as host binaries that connect to the NRI socket.
 
-Deploy a test pod:
+### Deploy the Hook Injector
+
+First, apply the ConfigMaps for the hook configuration and demo script:
+
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/containerd/nri/main/plugins/hook-injector/sample-hook-inject.yaml
+# Apply the hook configuration (defines which hooks to inject)
+kubectl apply -f hook-injector.yaml
 
-sudo cat /tmp/demo-hook.log
-
-######################################################################
-# Sample output
-######################################################################
-========== [pid 49658] Mon Mar 13 18:07:25 UTC 2023 ==========
-command: /usr/local/sbin/demo-hook.sh hook is always injected
-environment:
-    PWD=/run/containerd/io.containerd.runtime.v2.task/k8s.io/19d00982368f8eb1dbbd02ca0d6085a51490c64af8466318339c59c07d9a5b8a
-    DEMO_HOOK_ALWAYS_INJECTED=true
-    SHLVL=1
-    _=/usr/bin/env
-========== [pid 49707] Mon Mar 13 18:07:26 UTC 2023 ==========
-command: /usr/local/sbin/demo-hook.sh hook is always injected
-environment:
-    PWD=/run/containerd/io.containerd.runtime.v2.task/k8s.io/e0e6f4bf87246f1e927ae6d61a187e749fe61cf690aeff889fb697e3f907d92f
-    DEMO_HOOK_ALWAYS_INJECTED=true
-    SHLVL=1
-    _=/usr/bin/env
+# Apply the demo hook script
+kubectl apply -f demo-hook.yaml
 ```
+
+Then deploy the hook-injector DaemonSet using kustomize:
+
+```bash
+kubectl apply -k hook-injector/
+```
+
+Wait for the DaemonSet to be ready:
+
+```bash
+kubectl rollout status daemonset/nri-plugin-hook-injector -n kube-system
+```
+
+### Test the Hook Injector
+
+Follow the injector pod logs to see when hooks are executed:
+
+```bash
+# In one terminal, watch the injector logs
+kubectl logs -n kube-system -l app.kubernetes.io/name=nri-plugin-hook-injector -f
+```
+
+Create a test pod:
+
+```bash
+# In a second terminal, create a test pod that will trigger the hook
+kubectl run ubuntupod -it --rm --image=ubuntu -- bash
+exit
+
+# You can repeat the above command to create multiple pods and see the hook executed each time.
+```
+
+Verify the hook was executed by checking the log file on the node:
+
+```bash
+# Get node name
+NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+
+# Create a debug pod to access the node
+kubectl debug node/$NODE_NAME -it --image=mcr.microsoft.com/cbl-mariner/base/core:2.0
+
+# Inside the debug pod
+chroot /host
+cat /tmp/demo-hook.log
+```
+
+You should see log entries showing the hook was executed for your test pod.
+
+## Cleanup
+
+```bash
+# Delete the resource group (includes AKS cluster)
+az group delete --name $RESOURCE_GROUP --yes --no-wait
+```
+
+## References
+
+- [NRI (Node Resource Interface)](https://github.com/containerd/nri)
+- [NRI Hook Injector Plugin](https://github.com/containerd/nri/tree/main/plugins/hook-injector)
+- [AKS Documentation](https://learn.microsoft.com/en-us/azure/aks/)
+- [Containerd NRI Specification](https://github.com/containerd/containerd/blob/main/docs/NRI.md)

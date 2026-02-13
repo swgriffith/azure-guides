@@ -15,18 +15,20 @@ spec:
             - |
               cp /scripts/demo-hook.sh /host/usr/local/sbin/demo-hook.sh
               chmod +x /host/usr/local/sbin/demo-hook.sh
-              cp /hooks/* /host/usr/share/containers/oci/hooks.d/
+              cp /hooks/* /host/etc/containers/oci/hooks.d/
           volumeMounts:
             - name: demo-hook-script
               mountPath: /scripts
               readOnly: true
-            - name: host-sbin
-              mountPath: /host/usr/local/sbin
             - name: hook-injector-hooks
               mountPath: /hooks
               readOnly: true
-            - name: usr-share-hooks-d
-              mountPath: /host/usr/share/containers/oci/hooks.d
+            - name: host-sbin
+              mountPath: /host/usr/local/sbin
+              readOnly: false
+            - name: etc-hooks-d
+              mountPath: /host/etc/containers/oci/hooks.d
+              readOnly: false
       containers:
         - name: plugin
           image: plugin
@@ -54,6 +56,9 @@ spec:
             - name: libexec-hooks-d
               mountPath: /usr/libexec/oci/hooks.d
               readOnly: true
+            - name: host-sbin
+              mountPath: /usr/local/sbin
+              readOnly: true
       volumes:
         - name: nri-socket
           hostPath:
@@ -64,9 +69,8 @@ spec:
             path: /etc/containers/oci/hooks.d
             type: DirectoryOrCreate
         - name: usr-share-hooks-d
-          hostPath:
-            path: /usr/share/containers/oci/hooks.d
-            type: DirectoryOrCreate
+          configMap:
+            name: hook-injector-hooks
         - name: libexec-hooks-d
           hostPath:
             path: /usr/libexec/oci/hooks.d
