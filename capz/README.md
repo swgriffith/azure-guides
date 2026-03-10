@@ -4,7 +4,7 @@
 
 
 ```bash
-RG=EphCAPZ
+RG=EphCAPZLab
 AZURE_LOCATION=eastus2
 CLUSTER_NAME=capz
 
@@ -21,10 +21,8 @@ export AZURE_CLIENT_ID=$(cat cluster-id-sp.json|jq -r .appId)
 export AZURE_CLIENT_ID_USER_ASSIGNED_IDENTITY=$AZURE_CLIENT_ID # for compatibility with CAPZ v1.16 templates
 export AZURE_CLIENT_SECRET=$(cat cluster-id-sp.json|jq -r .password)
 
-
-
 # Settings needed for AzureClusterIdentity used by the AzureCluster
-export ASO_CREDENTIAL_SECRET_NAME="cluster-identity-secret"
+export AZURE_CLUSTER_IDENTITY_SECRET_NAME="cluster-identity-secret"
 export CLUSTER_IDENTITY_NAME="cluster-identity"
 export AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE="default"
 
@@ -49,6 +47,8 @@ spec:
   tenantID: ${AZURE_TENANT_ID}
   type: ServicePrincipal
 EOF
+
+kubectl apply -f cluster-identity.yaml
 
 # Finally, initialize the management cluster
 clusterctl init --infrastructure azure

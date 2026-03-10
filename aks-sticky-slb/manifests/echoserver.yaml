@@ -11,7 +11,7 @@ spec:
   #   clientIP:
   #     timeoutSeconds: 86400
   #internalTrafficPolicy: Cluster
-  externalTrafficPolicy: Cluster
+  externalTrafficPolicy: Local
   ports:
   - port: 8080
     protocol: TCP

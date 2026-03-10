@@ -1,0 +1,275 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patches
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  version: v1
+  patches.yaml: |-
+    {{- /* Service Account Support */ -}}
+    {{- if .Values.workloads.serviceAccount.name }}
+    ########################################
+    # Service Account Support
+    ########################################
+    # Apply service account patch only to pods that don't have IAM mapping
+    - kind: Pod
+      selector: {{ print "!" (.Values.workloads.serviceAccount.iamMappingAnnotation | default "anyscale.com/iam-mapping") | quote }}
+      patch:
+        - op: add
+          path: /spec/serviceAccountName
+          value: "{{ .Values.workloads.serviceAccount.name }}"
+    {{- end }}
+
+    {{- /* Azure Workload Identity Support */ -}}
+    {{- if eq .Values.global.cloudProvider "azure" }}
+    - kind: Pod
+      patch:
+        - op: add
+          path: /metadata/labels/azure.workload.identity~1use
+          value: "true"
+        - op: add
+          path: /metadata/annotations/azure.workload.identity~1inject-proxy-sidecar
+          value: "true"
+        - op: add
+          path: /metadata/annotations/azure.workload.identity~1proxy-sidecar-port
+          value: "{{ .Values.global.azure.workloadIdentity.proxyPort }}"
+    {{- end }}
+
+    ########################################
+    # Market Type Support
+    ########################################
+    {{- /* Build combined market type patches */ -}}
+    {{- $allPatches := dict "all" list "ondemand" list "spot" list }}
+    {{- if .Values.workloads.marketType.enableDefaults }}
+      {{- /* Add generic patches first */ -}}
+      {{- if .Values.workloads.marketType.generic.all }}
+        {{- $allPatches = set $allPatches "all" .Values.workloads.marketType.generic.all }}
+      {{- end }}
+      {{- if .Values.workloads.marketType.generic.ondemand }}
+        {{- $allPatches = set $allPatches "ondemand" .Values.workloads.marketType.generic.ondemand }}
+      {{- end }}
+      {{- if .Values.workloads.marketType.generic.spot }}
+        {{- $allPatches = set $allPatches "spot" .Values.workloads.marketType.generic.spot }}
+      {{- end }}
+
+      {{- /* Add provider-specific patches (cloud or karpenter) */ -}}
+      {{- $providerKey := .Values.global.cloudProvider }}
+      {{- if .Values.workloads.enableKarpenterSupport }}
+        {{- $providerKey = "karpenter" }}
+      {{- end }}
+      {{- $providerPatches := index .Values.workloads.marketType $providerKey }}
+      {{- if $providerPatches }}
+        {{- if $providerPatches.all }}
+          {{- $allPatches = set $allPatches "all" (concat (get $allPatches "all") $providerPatches.all) }}
+        {{- end }}
+        {{- if $providerPatches.ondemand }}
+          {{- $allPatches = set $allPatches "ondemand" (concat (get $allPatches "ondemand") $providerPatches.ondemand) }}
+        {{- end }}
+        {{- if $providerPatches.spot }}
+          {{- $allPatches = set $allPatches "spot" (concat (get $allPatches "spot") $providerPatches.spot) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+
+    {{- /* Add additional patches */ -}}
+    {{- if .Values.workloads.marketType.additional }}
+      {{- if .Values.workloads.marketType.additional.all }}
+        {{- $allPatches = set $allPatches "all" (concat (get $allPatches "all") .Values.workloads.marketType.additional.all) }}
+      {{- end }}
+      {{- if .Values.workloads.marketType.additional.ondemand }}
+        {{- $allPatches = set $allPatches "ondemand" (concat (get $allPatches "ondemand") .Values.workloads.marketType.additional.ondemand) }}
+      {{- end }}
+      {{- if .Values.workloads.marketType.additional.spot }}
+        {{- $allPatches = set $allPatches "spot" (concat (get $allPatches "spot") .Values.workloads.marketType.additional.spot) }}
+      {{- end }}
+    {{- end }}
+
+    {{- /* Apply combined patches */ -}}
+    {{- $allPatchesAll := get $allPatches "all" }}
+    {{- if $allPatchesAll }}
+    - kind: Pod
+      patch:
+{{ toYaml $allPatchesAll | indent 8 }}
+    {{- end }}
+    {{- $allPatchesOndemand := get $allPatches "ondemand" }}
+    {{- if $allPatchesOndemand }}
+    - kind: Pod
+      selector: "anyscale.com/market-type in (ON_DEMAND)"
+      patch:
+{{ toYaml $allPatchesOndemand | indent 8 }}
+    {{- end }}
+    {{- $allPatchesSpot := get $allPatches "spot" }}
+    {{- if $allPatchesSpot }}
+    - kind: Pod
+      selector: "anyscale.com/market-type in (SPOT)"
+      patch:
+{{ toYaml $allPatchesSpot | indent 8 }}
+    {{- end }}
+
+    {{- /* Zone Support */ -}}
+    {{- if .Values.workloads.enableZoneSelector }}
+    ########################################
+    # Zone Support
+    ########################################
+    - kind: Pod
+      selector: anyscale.com/zone
+      patch:
+        - op: add
+          path: /spec/nodeSelector/topology.kubernetes.io~1zone
+        - op: copy
+          from: /metadata/annotations/anyscale.com~1zone
+          path: /spec/nodeSelector/topology.kubernetes.io~1zone
+    {{- end }}
+
+    {{- /* GPU Support - Remaining GPU patches after tolerations */ -}}
+    {{- if .Values.workloads.accelerator.enableDefaults }}
+    ########################################
+    # GPU Support
+    ########################################
+    {{- if eq .Values.global.cloudProvider "aws" }}
+    # Prevent CPU workloads from being scheduled on GPU nodes.
+    - kind: Pod
+      selector: "!anyscale.com/accelerator-type"
+      patch:
+        - op: add
+          path: /spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms/-
+          value:
+            matchExpressions:
+              - key: "nvidia.com/gpu.count"
+                operator: DoesNotExist
+    {{- end }}
+
+    {{- /* GPU Node Selectors */ -}}
+    {{- $allAccelerators := dict }}
+    {{- if .Values.workloads.accelerator.enableDefaults }}
+      {{- /* Add cloud-specific defaults */ -}}
+      {{- $cloudAccelerators := index .Values.workloads.accelerator.nodeSelectors .Values.global.cloudProvider }}
+      {{- if $cloudAccelerators }}
+        {{- $allAccelerators = merge $allAccelerators $cloudAccelerators }}
+      {{- end }}
+    {{- end }}
+    {{- /* Add additional accelerator mappings */ -}}
+    {{- if .Values.workloads.accelerator.nodeSelectors.additional }}
+      {{- $allAccelerators = merge $allAccelerators .Values.workloads.accelerator.nodeSelectors.additional }}
+    {{- end }}
+
+    {{- range $acceleratorType, $nodeValue := $allAccelerators }}
+    - kind: Pod
+      selector: "anyscale.com/accelerator-type in ({{ $acceleratorType }})"
+      patch:
+        - op: add
+          {{- if $.Values.workloads.accelerator.customNodeSelectorKey }}
+          path: /spec/nodeSelector/{{ include "anyscale-operator.jsonPointer" $.Values.workloads.accelerator.customNodeSelectorKey }}
+          {{- else if eq $.Values.global.cloudProvider "aws" }}
+          path: /spec/nodeSelector/nvidia.com~1gpu.product
+          {{- else if eq $.Values.global.cloudProvider "gcp" }}
+          path: /spec/nodeSelector/cloud.google.com~1gke-accelerator
+          {{- else if eq $.Values.global.cloudProvider "azure" }}
+          path: /spec/nodeSelector/nvidia.com~1gpu.product
+          {{- else }}
+          path: /spec/nodeSelector/nvidia.com~1gpu.product
+          {{- end }}
+          value: "{{ $nodeValue }}"
+    {{- end }}
+    {{- end }}
+
+    {{- /* GPU Tolerations */ -}}
+    {{- $allTolerations := list }}
+    {{- if .Values.workloads.accelerator.enableDefaults }}
+      {{- /* Add default tolerations */ -}}
+      {{- if .Values.workloads.accelerator.tolerations.default }}
+        {{- $allTolerations = .Values.workloads.accelerator.tolerations.default }}
+      {{- end }}
+    {{- end }}
+    {{- /* Add additional tolerations */ -}}
+    {{- if .Values.workloads.accelerator.tolerations.additional }}
+      {{- $allTolerations = concat $allTolerations .Values.workloads.accelerator.tolerations.additional }}
+    {{- end }}
+    {{- if $allTolerations }}
+    # Tolerations for GPU workloads
+    - kind: Pod
+      selector: "anyscale.com/accelerator-type"
+      patch:
+        {{- range $allTolerations }}
+        - op: add
+          path: /spec/tolerations/-
+          value:
+{{ toYaml . | indent 12 }}
+        {{- end }}
+    {{- end }}
+    ########################################
+    # Instance Type Configurations (put these below the other patches so
+    # that instance-type specific patches can override the default patches).
+    ########################################
+    {{- $allInstanceTypes := dict }}
+    {{- if .Values.workloads.instanceTypes.enableDefaults }}
+      {{- $allInstanceTypes = merge $allInstanceTypes (default dict .Values.workloads.instanceTypes.defaults) }}
+    {{- end }}
+    {{- $allInstanceTypes = merge $allInstanceTypes (default dict .Values.workloads.instanceTypes.additional) }}
+
+    {{- range $instanceType, $config := $allInstanceTypes }}
+      {{- if or $config.nodeSelector $config.tolerations }}
+    - kind: Pod
+      selector: "anyscale.com/instance-type in ({{ $instanceType }})"
+      patch:
+        {{- range $key, $value := $config.nodeSelector }}
+        - op: add
+          path: /spec/nodeSelector/{{ include "anyscale-operator.jsonPointer" $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- range $toleration := $config.tolerations }}
+        - op: add
+          path: /spec/tolerations/-
+          value:
+{{ toYaml $toleration | indent 12 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+
+    {{- /* Ingress Address Annotation */ -}}
+    {{- if .Values.networking.ingress.address }}
+    ########################################
+    # Ingress Address Annotation
+    ########################################
+    - kind: Ingress
+      patch:
+        - op: add
+          path: /metadata/annotations/anyscale.com~1ingress-address
+          value: {{ .Values.networking.ingress.address }}
+    {{- end }}
+
+    {{- /* NGINX Ingress Controller Patches */ -}}
+    {{- if and (index .Values "ingress-nginx" "enabled") (ne (index .Values "ingress-nginx" "controller" "ingressClassResource" "name") "nginx") }}
+    ########################################
+    # NGINX Ingress Controller Specific Patches
+    ########################################
+    - kind: Ingress
+      patch:
+        - op: add
+          path: /spec/ingressClassName
+          value: {{ index .Values "ingress-nginx" "controller" "ingressClassResource" "name" }}
+        - op: add
+          path: /metadata/annotations/kubernetes.io~1ingress.class
+          value: {{ index .Values "ingress-nginx" "controller" "ingressClassResource" "name" }}
+    {{- end }}
+
+    {{- /* AWS Credential Secret */ -}}
+    {{- if .Values.credentialMount.aws.enabled }}
+    ########################################
+    # AWS Credential Secret
+    ########################################
+    {{- include "anyscale-operator.aws_credential_mount_patch" . | nindent 4 }}
+    {{- end }}
+
+    {{- /* Additional User Patches - Render as-is */ -}}
+    {{- if .Values.patches }}
+    ########################################
+    # Additional Patches
+    ########################################
+{{ toYaml .Values.patches | indent 4 }}
+    {{- end }}

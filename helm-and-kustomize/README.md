@@ -53,7 +53,7 @@ kubectl get all -n default
 helm get all <release name>
 
 # Upgrade the chart to a newer version
-helm upgrade mysql-1749740824 bitnami/mysql --version 13.0.0
+helm upgrade <release name> bitnami/mysql --version 13.0.0
 
 # Quickly watch the upgarde
 watch kubectl get all -n default

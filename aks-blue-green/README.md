@@ -228,3 +228,70 @@ az network lb show \
 --output tsv
 ```
 
+## Add an Azure Application Gateway
+
+```bash
+# Add a subnet for the Azure App Gateway
+APP_GW_SUBNET_ADDRESS_SPACE=10.140.7.0/24
+
+# Since we'll be allowing internet access to this Application Gateway, we should create and apply a network security group
+# to the Application Gateway subnet
+az network nsg create --resource-group $RG --name app-gw-subnet-nsg
+
+# Get my IP
+MY_IP=$(curl ipv4.icanhazip.com)
+
+# Create the NSG rule
+az network nsg rule create \
+--resource-group $RG \
+--nsg-name app-gw-subnet-nsg \
+--name AllowHTTP \
+--protocol Tcp \
+--direction Inbound \
+--priority 100 \
+--source-address-prefixes $MY_IP \
+--source-port-ranges '*' \
+--destination-address-prefixes '*' \
+--destination-port-ranges 80 \
+--access Allow
+
+# Create the Mandatory Gateway Manager rule
+az network nsg rule create \
+--resource-group $RG \
+--nsg-name app-gw-subnet-nsg \
+--name AllowGatewayManager \
+--protocol '*' \
+--direction Inbound \
+--priority 2702 \
+--source-address-prefixes "GatewayManager" \
+--destination-port-range '65200-65535' \
+--access Allow
+
+az network nsg rule create -g MyResourceGroup --nsg-name MyNsg -n MyNsgRuleWithTags --priority 400 --source-address-prefixes VirtualNetwork --destination-address-prefixes Storage --destination-port-ranges '65200-65535' --direction Outbound --access Allow --protocol Tcp --description "Allow VirtualNetwork to Storage."
+
+az network vnet subnet create \
+-g $RG \
+--vnet-name $VNET_NAME \
+--name app-gw-subnet \
+--address-prefix $APP_GW_SUBNET_ADDRESS_SPACE \
+--nsg app-gw-subnet-nsg
+
+# Create and app gateway public IP
+az network public-ip create --name app-gw-pip --resource-group $RG --sku Standard
+
+az network application-gateway create \
+--name app-gw \
+--resource-group $RG \
+--capacity 2 \
+--sku Standard_v2 \
+--public-ip-address app-gw-pip \
+--vnet-name $VNET_NAME \
+--subnet app-gw-subnet \
+--servers "$CLUSTER_A_KUBE_SVC_STATIC_IP" "$CLUSTER_B_KUBE_SVC_STATIC_IP" \
+--priority 100
+
+# Get the App GW Public IP
+APP_GW_PUBLIC_IP=$(az network public-ip show --name app-gw-pip --resource-group $RG -o tsv --query ipAddress)
+
+curl http://${APP_GW_PUBLIC_IP}
+```

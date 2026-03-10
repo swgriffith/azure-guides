@@ -3,9 +3,10 @@
 ## Cluster Setup
 
 ```bash
-RG=EphFleetUpgradeDem0
+RG=EphFleetUpgradeLab
 LOC=eastus2
 FLEET=fleetlab
+KUBE_VERSION=1.30.1
 
 # Create the resource group
 az group create -g $RG -l $LOC
@@ -14,13 +15,15 @@ az group create -g $RG -l $LOC
 az fleet create --resource-group $RG --name ${FLEET} --location $LOC
 
 # Create some AKS clusters
-az aks create -g $RG -n dev-canary -c 1 --no-wait
-az aks create -g $RG -n dev -c 1 --no-wait
-az aks create -g $RG -n test-canary -c 1 --no-wait
-az aks create -g $RG -n test -c 1 --no-wait
-az aks create -g $RG -n stg-canary -c 1 --no-wait
-az aks create -g $RG -n stg -c 1 --no-wait
-az aks create -g $RG -n prd -c 1 --no-wait
+az aks create -g $RG -n dev-canary -c 1 -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n dev -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n dev2 -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n test-canary -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n test -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n test2 -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n stg-canary -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n stg -c 1  -k $KUBE_VERSION --no-wait
+az aks create -g $RG -n prd -c 1  -k $KUBE_VERSION --no-wait
 
 az fleet member create \
 --resource-group $RG \
@@ -39,6 +42,13 @@ az fleet member create \
 az fleet member create \
 --resource-group $RG \
 --fleet-name $FLEET \
+--name dev2 \
+--member-cluster-id $(az aks show -g $RG -n dev2 --query id -o tsv) \
+--no-wait
+
+az fleet member create \
+--resource-group $RG \
+--fleet-name $FLEET \
 --name test-canary \
 --member-cluster-id $(az aks show -g $RG -n test-canary --query id -o tsv) \
 --no-wait
@@ -48,6 +58,13 @@ az fleet member create \
 --fleet-name $FLEET \
 --name test \
 --member-cluster-id $(az aks show -g $RG -n test --query id -o tsv) \
+--no-wait
+
+az fleet member create \
+--resource-group $RG \
+--fleet-name $FLEET \
+--name test2 \
+--member-cluster-id $(az aks show -g $RG -n test2 --query id -o tsv) \
 --no-wait
 
 az fleet member create \

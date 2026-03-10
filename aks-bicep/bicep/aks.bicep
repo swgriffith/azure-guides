@@ -36,7 +36,10 @@ param userPoolVnetSubnetID string
 param sshKey string = ''
 param linuxAdminUser string = 'azureuser'
 
-resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
+@description('The log analytics workspace resource ID.')
+param logAnalyticsWorkspaceId string = 'string'
+
+resource aks 'Microsoft.ContainerService/managedClusters@2024-10-02-preview' = {
   name: clusterName
   location: location
   identity: {
@@ -65,9 +68,19 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
         vnetSubnetID: userPoolVnetSubnetID
       }
     ]
+    azureMonitorProfile: {
+      containerInsights: {
+        disableCustomMetrics: false
+        disablePrometheusMetricsScraping: false
+        enabled: true
+        logAnalyticsWorkspaceResourceId: logAnalyticsWorkspaceId
+        syslogPort: null
+      }
+    }
     networkProfile: {
       networkPlugin: 'azure'
       networkPluginMode: 'overlay'
+      networkDataplane: 'cilium'
       podCidr: podCidr
       serviceCidr: serviceCidr
       dnsServiceIP: dnsServivceIP

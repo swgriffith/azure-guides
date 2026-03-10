@@ -1,0 +1,10 @@
+apiVersion: karpenter.azure.com/v1beta1
+kind: AKSNodeClass
+metadata:
+  name: anyscale-nodeclass
+  annotations:
+    kubernetes.io/description: AKSNodeClass for Anyscale workloads
+spec:
+  imageFamily: Ubuntu
+  osDiskSizeGB: 128
+  vnetSubnetID: /subscriptions/xxxxxxxxxxxx/resourceGroups/anyscale-nap-lab/providers/Microsoft.Network/virtualNetworks/anyscale-vnet/subnets/aks

@@ -1,0 +1,128 @@
+apiVersion: v1
+data:
+  vector.yaml: |
+    data_dir: /tmp/vector
+    sources:
+      raw_operator_logs:
+        type: file
+        include:
+          - /tmp/anyscale/logs/*.log
+      raw_vector_logs:
+        type: internal_logs
+      raw_metrics:
+        type: prometheus_scrape
+        endpoints:
+          - http://localhost:2112/metrics
+        scrape_interval_secs: 15
+      raw_metrics_grpc:
+        type: prometheus_scrape
+        endpoints:
+          - http://localhost:2112/metrics_grpc
+        scrape_interval_secs: 15
+    transforms:
+      vector_logs:
+        type: remap
+        inputs:
+          - raw_vector_logs
+        source: |-
+          .file = "vector"
+      operator_logs:
+        type: remap
+        inputs:
+          - raw_operator_logs
+        source: |-
+          .file = "anyscale-operator"
+      combined_logs:
+        type: remap
+        inputs:
+          - operator_logs
+          - vector_logs
+        source: |-
+          x = .file
+          if (parsed, err = parse_json(.message); err == null) {
+            . = parsed
+          } else {
+            y = .message
+            . = {}
+            .msg = y
+          }
+          if !exists(.cloud_id) {
+            .cloud_id = "unknown"
+          }
+          .file = x
+          .pod = "${POD_NAME}"
+          .pod_ip = "${POD_IP}"
+          .namespace = "${POD_NAMESPACE}"
+          {{ if .Values.global.region }}
+          .region = "{{ .Values.global.region }}"
+          {{ end }}
+      system_metrics:
+        type: remap
+        inputs:
+          - raw_metrics
+          - raw_metrics_grpc
+        source: |-
+          .tags.pod = "${POD_NAME}"
+          .tags.pod_ip = "${POD_IP}"
+          .tags.namespace = "${POD_NAMESPACE}"
+          {{ if .Values.global.region }}
+          .tags.region = "{{ .Values.global.region }}"
+          {{ end }}
+          .tags.cloud_provider = "{{ .Values.global.cloudProvider }}"
+          .tags.cloud_resource_id = "{{ .Values.global.cloudDeploymentId }}"
+          .tags.cloud_id = get_enrichment_table_record("runtime_metadata", {"key": "cloud_id"}).value ?? "unknown"
+    sinks:
+      # Forward Vector internal metrics to the system cortex.
+      sink_loki:
+        healthcheck: false
+        type: loki
+        inputs:
+          - combined_logs
+        endpoint: http://localhost:3100
+        labels:
+            cloud_id: '{{ "{{" }} cloud_id {{ "}}" }}'
+            pod_ip: "${POD_IP}"
+            cloudProvider: {{ .Values.global.cloudProvider }}
+            cloud_resource_id: {{ .Values.global.cloudDeploymentId }}
+            file: '{{ "{{" }} file {{ "}}" }}'
+            source: anyscale-operator
+        encoding:
+          codec: json
+        compression: snappy
+      az_metrics_sink:
+        type: prometheus_remote_write
+        inputs:
+          - system_metrics
+        endpoint: http://localhost:3101/api/v1/push
+        default_namespace: dataplane_aop
+        healthcheck:
+          enabled: false
+    api:
+      enabled: true
+    enrichment_tables:
+      runtime_metadata:
+        type: file
+        file:
+          path: /tmp/config/vector/runtime_metadata.csv
+          encoding:
+            type: csv
+        schema:
+          key: string
+          value: string
+  entrypoint.sh: |
+    #!/bin/sh
+    while [ ! -f '/tmp/config/vector/runtime_metadata.csv' ]; do
+      echo Waiting for metadata
+      sleep 1
+    done
+
+    /usr/bin/vector --watch-config --log-format json --config-yaml /etc/vector/vector.yaml
+kind: ConfigMap
+metadata:
+  name: vector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}

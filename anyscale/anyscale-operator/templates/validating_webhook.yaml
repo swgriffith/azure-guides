@@ -1,0 +1,31 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: anyscale-operator-{{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+webhooks:
+- name: instance-types.{{ .Release.Namespace }}.anyscale-operator.anyscale.com
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["configmaps"]
+    scope: Namespaced
+    operations: ["CREATE", "UPDATE"]
+  clientConfig:
+    url: {{ include "anyscale-operator.validateControlPlaneURL" . }}/api/v2/kubernetes_manager/admission/{{ .Values.global.cloudDeploymentId }}
+  sideEffects: None
+  timeoutSeconds: 30
+  # We are starting with hard-failing here; this can be changed to soft-failing if issues arise (e.g. control plane availability).
+  failurePolicy: Fail
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ .Release.Namespace }}
+  objectSelector:
+    matchLabels:
+      anyscale.com/name: instance-types
+  admissionReviewVersions:
+    - "v1"

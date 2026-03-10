@@ -1,0 +1,199 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.operator.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.operator.name }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.operator.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.operator.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.operator.name }}
+        {{- with .Values.operator.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.global.cloudProvider "azure" }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+      annotations:
+        {{- with .Values.operator.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.global.cloudProvider "azure" }}
+        azure.workload.identity/inject-proxy-sidecar: "true"
+        azure.workload.identity/proxy-sidecar-port: {{ .Values.global.azure.workloadIdentity.proxyPort | default 10000 | quote }}
+        {{- end }}
+    spec:
+      serviceAccount: {{ .Values.operator.name }}
+      {{- if .Values.operator.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.operator.nodeSelector | indent 8 }}
+      {{- else if .Values.operator.affinity }}
+      affinity:
+{{ toYaml .Values.operator.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.operator.tolerations }}
+      tolerations:
+{{ toYaml .Values.operator.tolerations | indent 8 }}
+      {{- end }}
+      {{- if .Values.operator.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.operator.imagePullSecrets | indent 8 }}
+      {{- end }}
+      containers:
+      - name: operator
+        {{- with .Values.operator.container.image }}
+        image: '{{ if .registry }}{{ .registry }}/{{ end }}{{ .image }}:{{ .tag }}'
+        {{- end }}
+        imagePullPolicy: {{ .Values.operator.container.imagePullPolicy | default "IfNotPresent" }}
+        command: ["/app/go/infra/kubernetes_manager/kubernetes_manager"]
+        args:
+        - --log-level=info
+        - --log-file=/tmp/anyscale/logs/operator.log
+        - start
+        - --cloud-deployment-id={{ required "global.cloudDeploymentId is required" .Values.global.cloudDeploymentId }}
+        - --control-plane-url={{ include "anyscale-operator.validateControlPlaneURL" . }}
+        - --cloud-provider={{ .Values.global.cloudProvider }}
+        {{- if .Values.operator.config.unscheduledPodReaper.terminationThreshold }}
+        - --unscheduled-pod-reaper-termination-threshold={{ .Values.operator.config.unscheduledPodReaper.terminationThreshold }}
+        {{- end }}
+        {{- if .Values.operator.config.unscheduledPodReaper.reconcileInterval }}
+        - --unscheduled-pod-reaper-reconcile-interval={{ .Values.operator.config.unscheduledPodReaper.reconcileInterval }}
+        {{- end }}
+        {{- if .Values.operator.config.kubernetesClient.rateLimiter.qps }}
+        - --kubernetes-client-rate-limiter-qps={{ .Values.operator.config.kubernetesClient.rateLimiter.qps }}
+        {{- end }}
+        {{- if .Values.operator.config.kubernetesClient.rateLimiter.burst }}
+        - --kubernetes-client-rate-limiter-burst={{ .Values.operator.config.kubernetesClient.rateLimiter.burst }}
+        {{- end }}
+        {{- if and (eq .Values.global.cloudProvider "aws") (not .Values.global.auth.anyscaleCliToken)  }}
+        - --aws-region={{ required "global.aws.region is required for operator registration using STS signer; must be set to the cloud provider region of this Kubernetes cluster" .Values.global.aws.region }}
+        {{- end }}
+        {{- if .Values.global.region }}
+        - --region={{ .Values.global.region }}
+        {{- end }}
+        - --patch-config-path=/tmp/config/patches.yaml
+        {{- if .Values.networking.gateway.enabled }}
+        - --enable-gateway=true
+        - --gateway-name={{ .Values.networking.gateway.name }}
+        - --gateway-hostname={{ .Values.networking.gateway.hostname }}
+        - --gateway-ip={{ .Values.networking.gateway.ip }}
+        - --gateway-api-version={{ .Values.networking.gateway.apiVersion }}
+        {{- end }}
+        - --system-logs-ingress-proxy-port=3100
+        - --system-metrics-ingress-proxy-port=3101
+        - --vector-enrichment-table-path=/tmp/config/vector/runtime_metadata.csv
+        {{- if .Values.operator.config.kubernetesClient.kubeConfigPath }}
+        - --kube-config={{ .Values.operator.config.kubernetesClient.kubeConfigPath }}
+        {{- end }}
+        {{- if gt (int .Values.operator.replicas) 1 }}
+        - --enable-leader-election=true
+        - --leader-election-lease-namespace={{ .Release.Namespace }}
+        - --leader-election-lease-name=anyscale-operator-lease
+        {{- end }}
+        {{- if .Values.operator.config.status.excludeComponentVerification }}
+        {{- range .Values.operator.config.status.excludeComponentVerification }}
+        - --exclude-component-verification={{ . }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.operator.config.status.reportingEnabled }}
+        - --enable-status-reporting=true
+        {{- end }}
+        - --operator-version={{ .Chart.Version }}
+        - --instance-types-config-map-name={{ .Values.workloads.instanceTypes.configMap.name | default "instance-types" }}
+        {{- if .Values.workloads.enableCrossNamespaceResourceManagement }}
+        - --enable-cross-namespace-resource-management=true
+        {{- end }}
+        resources:
+{{ toYaml .Values.operator.container.resources | indent 10 }}
+        env:
+        {{- if .Values.global.aws.s3.usePathStyle }}
+        - name: ANYSCALE_S3_USE_PATH_STYLE
+          value: "true"
+        {{- end }}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- if .Values.global.auth.anyscaleCliToken }}
+        - name: ANYSCALE_CLI_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: anyscale-cli-token
+              key: ANYSCALE_CLI_TOKEN
+        {{- end }}
+        volumeMounts:
+          - name: logs
+            mountPath: /tmp/anyscale/logs/
+          - name: patches
+            mountPath: /tmp/config
+          - name: vector-config
+            mountPath: /tmp/config/vector/
+          {{- if .Values.credentialMount.aws.enabled }}
+          - mountPath: {{ .Values.credentialMount.aws.fromSecret.operatorMountPath }}
+            name: aws-creds
+            readOnly: true
+          {{- end }}
+      - name: vector
+        {{- with .Values.operator.vector.image }}
+        image: '{{ if .registry }}{{ .registry }}/{{ end }}{{ .image }}:{{ .tag }}'
+        {{- end }}
+        imagePullPolicy: {{ .Values.operator.vector.imagePullPolicy | default "IfNotPresent" }}
+        command: ["/bin/sh"]
+        args:
+        - /etc/vector/entrypoint.sh
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        resources:
+{{ toYaml .Values.operator.vector.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /tmp/anyscale/logs/
+          name: logs
+        - mountPath: /etc/vector/
+          name: vector
+          readOnly: true
+        - mountPath: /tmp/vector
+          name: vector-state
+        - mountPath: /tmp/config/vector/
+          name: vector-config
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: patches
+          configMap:
+            name: patches
+        - name: vector
+          projected:
+            defaultMode: 420
+            sources:
+            - configMap:
+                name: vector
+        - name: vector-state
+          emptyDir: {}
+        - name: vector-config
+          emptyDir: {}
+        {{- if .Values.credentialMount.aws.enabled }}
+        - name: aws-creds
+          secret:
+            secretName: {{ .Values.credentialMount.aws.fromSecret.name }}
+        {{- end }}

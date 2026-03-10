@@ -49,4 +49,11 @@ resource "azurerm_kubernetes_cluster" "k8s" {
     ip_versions         = var.network_profile.ip_versions
     ebpf_data_plane     = var.network_profile.ebpf_data_plane
   }
+
+  linux_profile {
+    admin_username = "griffith"
+    ssh_key {
+      key_data = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDOwu58feXMhtUUfUv+dmvWzvsi3GQuatetmLEohqUbOy9L1aW5rzb1k5Axoj0tfP+DNzDTtMO40RBFNdRFlsBjutl0QYh+3UqQjFRjdrG1VRtpjZPBEvAsJ8YmNjVpHRVhnMV0FjiMkDqI9vJk0ScypMDuHvmhZ/pV4cgNeCQ6uFPYKT+WqbZ5rQ/1ex1aRemydIAdoQDXl6zLbqAkziBGDvaEyAitY44jVTsCjpo/EVf9L+sk4aNx9AxqeR2ZgZflwiWK5oZKAFYpC+Nb+27KNE4du17U5Gjh3VmqG1i2prkhvGaDZiZHeWM0vubpgHqftmEO8HZPGMO/FrSh4R+LomRvHNp3wYo835wXzQSgzVFX1+Xm/SDyL6aYro023Cw88K+SaEKgGFrIxbuyVI0NRj010MKGj2RlixD81IDbzE+pm9yMcTFWMHqBk8JX1I76IzKzjBnyRUxytMUVq+5CR6S/LQpf2xZwbiu0TMwv0ctEsmogAKsdq9hPhmBBakc= griffith@Steves-MacBook-Pro.local"
+    }
+  }
 }

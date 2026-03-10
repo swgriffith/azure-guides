@@ -18,7 +18,7 @@ variable "node_count" {
 
 variable "vnet_subnet_id" {
     type = string
-    default = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/RedDogAKSWorkshop/providers/Microsoft.Network/virtualNetworks/reddog-vnet/subnets/aks"
+    default = "/subscriptions/286322da-1300-4ce9-a39b-a4b7080f0a94/resourceGroups/networkinfra/providers/Microsoft.Network/virtualNetworks/azure-eastus-vnet/subnets/tftest"
   
 }
 
@@ -43,9 +43,9 @@ variable "network_profile" {
   })
   default = {
     network_plugin      = "azure"
-    network_plugin_mode = "Overlay"
+    network_plugin_mode = "overlay"
     network_policy      = "calico"
-    outbound_type = "userDefinedRouting"
+    outbound_type = "loadBalancer"
   }
 }
 

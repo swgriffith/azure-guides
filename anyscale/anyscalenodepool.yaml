@@ -1,0 +1,56 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  annotations:
+    kubernetes.io/description: General purpose Anyscale NodePool for generic workloads
+  generation: 1
+  labels:
+  name: anyscale-nodepool
+spec:
+  disruption:
+    budgets:
+    - nodes: 30%
+    consolidateAfter: 0s
+    consolidationPolicy: WhenEmptyOrUnderutilized
+#   limits:
+#     cpu: "73000"
+#     memory: 2000Gi
+  template:
+    metadata:
+      labels:
+        kubernetes.azure.com/ebpf-dataplane: cilium
+        karpenter.sh/capacity-type: on-demand
+    spec:
+      expireAfter: Never
+      nodeClassRef:
+        group: karpenter.azure.com
+        kind: AKSNodeClass
+        name: anyscale-nodeclass
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values:
+        - amd64
+      - key: kubernetes.io/os
+        operator: In
+        values:
+        - linux
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values:
+        - on-demand
+      - key: karpenter.azure.com/sku-family
+        operator: In
+        values:
+        - NV
+      - key: kubernetes.azure.com/ebpf-dataplane
+        operator: In
+        values:
+        - cilium
+      startupTaints:
+      - effect: NoExecute
+        key: node.cilium.io/agent-not-ready
+        value: "true"
+      - key: node.anyscale.com/capacity-type
+        value: ON_DEMAND
+        effect: NoSchedule

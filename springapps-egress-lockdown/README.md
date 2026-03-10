@@ -168,6 +168,19 @@ export SERVICE_ROUTE_TABLE_RESOURCE_ID=$(az network route-table show --name asad
 az role assignment create --role "Owner" --scope ${SERVICE_ROUTE_TABLE_RESOURCE_ID} --assignee e8de9221-a19c-4c81-b814-fd37c6caf9d2
 ```
 
+### Create a test VM on the private network
+
+```bash
+az vm create \
+    --resource-group $RG \
+    --name jump \
+    --image "Canonical:0001-com-ubuntu-minimal-jammy:minimal-22_04-lts-gen2:latest" \
+    --admin-username azureuser \
+    --assign-identity \
+    --generate-ssh-keys \
+    --public-ip-sku Standard
+```
+
 ### Create the ASA Environment
 
 ```bash

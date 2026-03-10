@@ -1,0 +1,11 @@
+controller:
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/healthz"
+  allowSnippetAnnotations: true
+  config:
+    enable-underscores-in-headers: true
+    annotations-risk-level: "Critical"
+  autoscaling:
+    enabled: true
