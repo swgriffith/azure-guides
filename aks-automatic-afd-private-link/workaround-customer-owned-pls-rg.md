@@ -364,6 +364,28 @@ az network private-endpoint-connection approve \
   --description "Approved for Azure Front Door"
 ```
 
+After manual approval, update the AFD origin so its `sharedPrivateLinkResource.status` records the approved state. In testing, the PLS side showed `Approved`, but the AFD origin still had `sharedPrivateLinkResource.status: null` and the AFD route remained `NotStarted` until the origin was updated.
+
+```bash
+cat > /tmp/afd-shared-pls-approved.json <<EOF
+{
+  "privateLink": {
+    "id": "$PLS_ID"
+  },
+  "privateLinkLocation": "$LOC",
+  "requestMessage": "Azure Front Door connection to AKS Automatic App Routing Gateway",
+  "status": "Approved"
+}
+EOF
+
+az afd origin update \
+  -g $RG \
+  --profile-name $AFD_PROFILE \
+  --origin-group-name $AFD_ORIGIN_GROUP \
+  -n $AFD_ORIGIN \
+  --shared-private-link-resource @/tmp/afd-shared-pls-approved.json
+```
+
 Option 2: discover the AFD service-owned subscription, update the PLS allowlist, and recreate the AFD origin so the request is evaluated again.
 
 ```bash
@@ -395,7 +417,18 @@ AFD_HOST=$(az afd endpoint show \
 curl -i http://$AFD_HOST/
 ```
 
-If you see an AFD `CONFIG_NOCACHE` 404, wait for Front Door route propagation and confirm the route is linked to the default endpoint domain.
+If the response is the AKS welcome page, the full path is working through Azure Front Door, Private Link, the managed Gateway, and the backend service.
+
+You may still see `deploymentStatus: NotStarted` on some AFD resources even after traffic works. Confirm with response headers/body and Gateway access logs:
+
+```bash
+curl -sS -D - -o /tmp/afd-body.html http://$AFD_HOST/ | grep -iE 'HTTP/|x-cache|x-azure-ref'
+head /tmp/afd-body.html
+
+kubectl logs deploy/afd-pls-gateway-approuting-istio --tail=20
+```
+
+If you see an AFD `CONFIG_NOCACHE` 404 and no Gateway logs, wait for Front Door route propagation and confirm the route is linked to the default endpoint domain. If the PLS connection was manually approved, also confirm the AFD origin has `sharedPrivateLinkResource.status: Approved`.
 
 ## Clean up
 
@@ -403,4 +436,3 @@ If you see an AFD `CONFIG_NOCACHE` 404, wait for Front Door route propagation an
 az group delete -g $RG --yes --no-wait
 az group delete -g $PLS_RG --yes --no-wait
 ```
-
